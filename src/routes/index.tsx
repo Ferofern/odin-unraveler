@@ -168,6 +168,8 @@ function CasoOdinPage() {
             removeCharge(openPerson.id, chargeId);
             if (selectedChargeId === chargeId) setSelectedChargeId(null);
           }}
+          onMoveCharge={(fromId, toId) => moveCharge(openPerson.id, fromId, toId)}
+
           onClose={() => {
             setOpenPersonId(null);
             setSelectedChargeId(null);
