@@ -296,7 +296,18 @@ export function CaseDetail({
                                   items: field.items.filter((it) => it.id !== item.id),
                                 })
                               }
+                              dragging={dragItem?.itemId === item.id}
+                              onDragStartItem={() =>
+                                setDragItem({ fieldId: field.id, itemId: item.id })
+                              }
+                              onDragEndItem={() => setDragItem(null)}
+                              onDropItem={() => {
+                                if (dragItem && dragItem.fieldId === field.id)
+                                  moveItem(field.id, dragItem.itemId, item.id);
+                                setDragItem(null);
+                              }}
                             />
+
                           ))}
                         </ul>
                       )}
