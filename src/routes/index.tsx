@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, UserPlus } from "lucide-react";
 import { Editable } from "@/components/caso-odin/editable";
 import { PersonNode } from "@/components/caso-odin/person-node";
 import { CaseDetail } from "@/components/caso-odin/case-detail";
