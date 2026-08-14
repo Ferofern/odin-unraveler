@@ -1,76 +1,174 @@
-/**
- * Capa de acceso a la base de datos del Caso Odín (server-only).
- *
- * TODO (usuario): colocar aquí la dirección y la contraseña de la base de datos.
- * Se leen desde variables de entorno del servidor para no exponer credenciales:
- *   CASE_DB_URL       → p. ej. postgresql://usuario:contraseña@host:5432/base
- *   CASE_DB_PASSWORD  → opcional, si la URL no la incluye
- *   CASE_DB_TABLE     → opcional, por defecto "caso_odin_state"
- *
- * Mientras no existan esas variables, las funciones devuelven `configured: false`
- * y la aplicación sigue trabajando con el almacenamiento local del navegador.
- */
+import { createClient } from '@supabase/supabase-js';
 
-export interface DbConfig {
-  url: string;
-  password: string;
-  table: string;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function readCase(caseId: string) {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, payload: null };
+
+  try {
+    const { data: implicados, error: errImp } = await supabase.from('implicados').select('*').order('id');
+    const { data: acusaciones, error: errAcu } = await supabase.from('acusaciones').select('*').order('id');
+    const { data: pruebas, error: errPru } = await supabase.from('pruebas').select('*');
+    const { data: gestiones, error: errGes } = await supabase.from('gestiones').select('*');
+
+    if (errImp || errAcu || errPru || errGes) throw new Error();
+
+    const people = implicados.map((imp: any, index: number) => {
+      const impCharges = acusaciones.filter((a: any) => a.implicado_id === String(imp.id));
+      
+      return {
+        id: String(imp.id),
+        name: imp.nombre,
+        role: imp.rol,
+        x: 12.5 + (index * 25),
+        y: 27,
+        w: 240,
+        h: 190,
+        photo: "",
+        photoW: 200,
+        photoRatio: 0.75,
+        charges: impCharges.map((acu: any) => {
+          const acuProofs = pruebas.filter((p: any) => p.acusacion_id === String(acu.id));
+          const acuTasks = gestiones.filter((g: any) => g.acusacion_id === String(acu.id));
+
+          return {
+            id: String(acu.id),
+            n: acu.numero,
+            year: acu.fecha,
+            title: acu.titulo,
+            fields: [
+              {
+                id: `f-just-${acu.id}`,
+                label: "La justificación",
+                type: "text",
+                text: acu.justificacion || "",
+                items: []
+              },
+              {
+                id: `f-proofs-${acu.id}`,
+                label: "La prueba (fojas)",
+                type: "proofs",
+                text: "",
+                items: acuProofs.map((p: any) => ({
+                  id: String(p.id),
+                  label: p.etiqueta,
+                  url: p.url || ""
+                }))
+              },
+              {
+                id: `f-tasks-${acu.id}`,
+                label: "Gestiones por realizar",
+                type: "tasks",
+                text: "",
+                items: acuTasks.map((t: any) => ({
+                  id: String(t.id),
+                  label: t.descripcion,
+                  url: ""
+                }))
+              },
+              {
+                id: `f-tipo-${acu.id}`,
+                label: "Tipo penal",
+                type: "text",
+                text: acu.tipo_penal || "",
+                items: []
+              }
+            ]
+          };
+        })
+      };
+    });
+
+    const caseState = {
+      version: 3,
+      kicker: "Expediente Reservado · Caso Odín",
+      title: "Mapa de Implicados y Acusaciones",
+      charge: "Lavado de activos (Art. 317 IN. 1 INC. 1) — activos de origen ilícito.",
+      people: people
+    };
+
+    return { configured: true, payload: JSON.stringify(caseState) };
+  } catch (error) {
+    return { configured: true, payload: null };
+  }
 }
 
-export function readDbConfig(): DbConfig | null {
-  const url = process.env['CASE_DB_URL'];
-  if (!url) return null;
-  return {
-    url,
-    password: process.env['CASE_DB_PASSWORD'] ?? "",
-    table: process.env['CASE_DB_TABLE'] ?? "caso_odin_state",
-  };
-}
+export async function writeCase(caseId: string, payload: string) {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, saved: false };
 
-export interface DbReadResult {
-  configured: boolean;
-  /** Estado serializado (JSON) del expediente, o null si no hay fila guardada. */
-  payload: string | null;
-}
+  try {
+    const state = JSON.parse(payload);
+    const people = state.people || [];
 
-export interface DbWriteResult {
-  configured: boolean;
-  saved: boolean;
-}
+    const implicadosUpsert = people.map((p: any) => ({
+      id: p.id,
+      nombre: p.name,
+      rol: p.role
+    }));
 
-/**
- * Lee el expediente almacenado.
- *
- * TODO (usuario): reemplazar el bloque marcado por la consulta real, por ejemplo:
- *   const rows = await sql`select payload from ${sql(cfg.table)} where id = ${caseId}`
- */
-export async function readCase(caseId: string): Promise<DbReadResult> {
-  const cfg = readDbConfig();
-  if (!cfg) return { configured: false, payload: null };
+    if (implicadosUpsert.length > 0) {
+      await supabase.from('implicados').upsert(implicadosUpsert);
+    }
 
-  // --- INICIO consulta real (pendiente de credenciales) ---
-  void caseId;
-  void cfg;
-  return { configured: true, payload: null };
-  // --- FIN consulta real ---
-}
+    const acusacionesUpsert: any[] = [];
+    const pruebasUpsert: any[] = [];
+    const gestionesUpsert: any[] = [];
 
-/**
- * Guarda (upsert) el expediente completo.
- *
- * TODO (usuario): reemplazar el bloque marcado por el upsert real, por ejemplo:
- *   await sql`insert into ${sql(cfg.table)} (id, payload, updated_at)
- *             values (${caseId}, ${payload}::jsonb, now())
- *             on conflict (id) do update set payload = excluded.payload, updated_at = now()`
- */
-export async function writeCase(caseId: string, payload: string): Promise<DbWriteResult> {
-  const cfg = readDbConfig();
-  if (!cfg) return { configured: false, saved: false };
+    for (const p of people) {
+      for (const c of p.charges || []) {
+        const justField = c.fields.find((f: any) => f.label === "La justificación");
+        const tipoField = c.fields.find((f: any) => f.label === "Tipo penal");
 
-  // --- INICIO escritura real (pendiente de credenciales) ---
-  void caseId;
-  void payload;
-  void cfg;
-  return { configured: true, saved: false };
-  // --- FIN escritura real ---
+        acusacionesUpsert.push({
+          id: c.id,
+          implicado_id: p.id,
+          numero: c.n,
+          fecha: c.year,
+          titulo: c.title,
+          justificacion: justField ? justField.text : "",
+          tipo_penal: tipoField ? tipoField.text : ""
+        });
+
+        const proofsField = c.fields.find((f: any) => f.type === "proofs");
+        if (proofsField && proofsField.items) {
+          for (const pr of proofsField.items) {
+            pruebasUpsert.push({
+              id: pr.id,
+              acusacion_id: c.id,
+              etiqueta: pr.label,
+              url: pr.url
+            });
+          }
+        }
+
+        const tasksField = c.fields.find((f: any) => f.type === "tasks");
+        if (tasksField && tasksField.items) {
+          for (const tk of tasksField.items) {
+            gestionesUpsert.push({
+              id: tk.id,
+              acusacion_id: c.id,
+              descripcion: tk.label
+            });
+          }
+        }
+      }
+    }
+
+    if (acusacionesUpsert.length > 0) {
+      await supabase.from('acusaciones').upsert(acusacionesUpsert);
+    }
+    if (pruebasUpsert.length > 0) {
+      await supabase.from('pruebas').upsert(pruebasUpsert);
+    }
+    if (gestionesUpsert.length > 0) {
+      await supabase.from('gestiones').upsert(gestionesUpsert);
+    }
+
+    return { configured: true, saved: true };
+  } catch (error) {
+    return { configured: true, saved: false };
+  }
 }
