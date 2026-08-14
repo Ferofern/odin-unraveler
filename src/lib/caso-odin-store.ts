@@ -319,7 +319,9 @@ export function useCaseState() {
       // ignore
     }
     setState(fresh);
-  }, []);
+    scheduleRemoteSave(fresh);
+  }, [scheduleRemoteSave]);
+
 
   const updatePerson = useCallback(
     (personId: string, patch: Partial<StoredPerson>) =>
