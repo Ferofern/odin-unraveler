@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CASE_PEOPLE } from "./caso-odin-data";
+import { loadCaseFromDb, saveCaseToDb } from "./caso-odin-db.functions";
+
 
 export interface Proof {
   id: string;
