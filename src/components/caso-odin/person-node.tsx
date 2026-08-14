@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { X, Move, ImagePlus } from "lucide-react";
+import { X, Move, ImagePlus, Trash2 } from "lucide-react";
 import { Editable } from "./editable";
 import type { StoredPerson } from "@/lib/caso-odin-store";
 
@@ -9,9 +9,11 @@ interface PersonNodeProps {
   stageRef: React.RefObject<HTMLDivElement | null>;
   onSelect: () => void;
   onPatch: (patch: Partial<StoredPerson>) => void;
+  onRemove: () => void;
 }
 
-export function PersonNode({ person, active, stageRef, onSelect, onPatch }: PersonNodeProps) {
+export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemove }: PersonNodeProps) {
+
   const dragging = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const photoW = person.photoW || 200;
