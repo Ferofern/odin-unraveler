@@ -163,6 +163,19 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
           <ImagePlus className="h-3 w-3" />
         </button>
 
+        <button
+          type="button"
+          title="Eliminar implicado"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`¿Eliminar a «${person.name}» y todas sus acusaciones?`)) onRemove();
+          }}
+          className="absolute right-1.5 top-9 z-20 grid h-6 w-6 place-items-center rounded border border-parchment/30 bg-ink/70 text-parchment opacity-0 transition-opacity hover:bg-wine group-hover:opacity-100"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+
+
         <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden">
           <Editable
             value={person.name}
