@@ -418,6 +418,8 @@ export function useCaseState() {
   return {
     state,
     hydrated,
+    remoteStatus,
+
     update,
     updatePerson,
     updateCharge,
