@@ -28,8 +28,19 @@ export const Route = createFileRoute("/")({
 });
 
 function CasoOdinPage() {
-  const { state, hydrated, update, updatePerson, updateCharge, addCharge, removeCharge, reset } =
-    useCaseState();
+  const {
+    state,
+    hydrated,
+    update,
+    updatePerson,
+    updateCharge,
+    addCharge,
+    removeCharge,
+    moveCharge,
+    addPerson,
+    reset,
+  } = useCaseState();
+
   const stageRef = useRef<HTMLDivElement>(null);
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
   const [selectedChargeId, setSelectedChargeId] = useState<string | null>(null);
