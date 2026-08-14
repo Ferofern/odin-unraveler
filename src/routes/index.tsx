@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, UserPlus } from "lucide-react";
 import { Editable } from "@/components/caso-odin/editable";
 import { PersonNode } from "@/components/caso-odin/person-node";
 import { CaseDetail } from "@/components/caso-odin/case-detail";
@@ -28,8 +28,19 @@ export const Route = createFileRoute("/")({
 });
 
 function CasoOdinPage() {
-  const { state, hydrated, update, updatePerson, updateCharge, addCharge, removeCharge, reset } =
-    useCaseState();
+  const {
+    state,
+    hydrated,
+    update,
+    updatePerson,
+    updateCharge,
+    addCharge,
+    removeCharge,
+    moveCharge,
+    addPerson,
+    reset,
+  } = useCaseState();
+
   const stageRef = useRef<HTMLDivElement>(null);
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
   const [selectedChargeId, setSelectedChargeId] = useState<string | null>(null);
@@ -104,7 +115,22 @@ function CasoOdinPage() {
           : null}
       </div>
 
-      <div className="fixed bottom-4 right-6 z-[30] flex items-center gap-2 rounded-md border border-wine-soft/60 bg-ink/75 px-2.5 py-1.5">
+      <div className="fixed bottom-4 right-6 z-[30] flex items-center gap-3 rounded-md border border-wine-soft/60 bg-ink/75 px-2.5 py-1.5">
+        <button
+          type="button"
+          title="Añadir un nuevo implicado al mapa"
+          onClick={() => {
+            const created = addPerson();
+            if (created) {
+              setOpenPersonId(null);
+              setSelectedChargeId(null);
+            }
+          }}
+          className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-[0.2em] text-rose transition-colors hover:text-parchment"
+        >
+          <UserPlus className="h-3 w-3" /> Añadir implicado
+        </button>
+        <span className="h-4 w-px bg-wine-soft/50" />
         <button
           type="button"
           title="Restablecer expediente a los datos originales"
@@ -120,6 +146,7 @@ function CasoOdinPage() {
           <RotateCcw className="h-3 w-3" /> Restablecer
         </button>
       </div>
+
 
       <p className="fixed inset-x-0 bottom-6 z-[4] text-center text-[10.5px] uppercase tracking-[0.24em] text-dust">
         Clic en un implicado para abrir el expediente · Arrastre el ícono para moverlo · Esquina inferior para
@@ -141,6 +168,8 @@ function CasoOdinPage() {
             removeCharge(openPerson.id, chargeId);
             if (selectedChargeId === chargeId) setSelectedChargeId(null);
           }}
+          onMoveCharge={(fromId, toId) => moveCharge(openPerson.id, fromId, toId)}
+
           onClose={() => {
             setOpenPersonId(null);
             setSelectedChargeId(null);

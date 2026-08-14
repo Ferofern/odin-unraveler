@@ -18,6 +18,7 @@ interface CaseDetailProps {
   onPatchCharge: (chargeId: string, patch: Partial<StoredCharge>) => void;
   onAddCharge: () => void;
   onRemoveCharge: (chargeId: string) => void;
+  onMoveCharge: (fromId: string, toId: string) => void;
   onClose: () => void;
 }
 
@@ -28,10 +29,14 @@ export function CaseDetail({
   onPatchCharge,
   onAddCharge,
   onRemoveCharge,
+  onMoveCharge,
   onClose,
 }: CaseDetailProps) {
   const charge = person.charges.find((c) => c.id === selectedChargeId) ?? person.charges[0] ?? null;
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragChargeId, setDragChargeId] = useState<string | null>(null);
+  const [overChargeId, setOverChargeId] = useState<string | null>(null);
+  const [dragItem, setDragItem] = useState<{ fieldId: string; itemId: string } | null>(null);
 
   const setFields = (fields: CaseField[]) => {
     if (charge) onPatchCharge(charge.id, { fields });
@@ -40,6 +45,20 @@ export function CaseDetail({
   const patchField = (fieldId: string, patch: Partial<CaseField>) => {
     if (!charge) return;
     setFields(charge.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)));
+  };
+
+  /** Reorders items inside a list field. Labels are never changed by order. */
+  const moveItem = (fieldId: string, fromId: string, toId: string) => {
+    if (!charge || fromId === toId) return;
+    const field = charge.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    const list = [...field.items];
+    const from = list.findIndex((it) => it.id === fromId);
+    const to = list.findIndex((it) => it.id === toId);
+    if (from < 0 || to < 0) return;
+    const [moved] = list.splice(from, 1);
+    if (moved) list.splice(to, 0, moved);
+    patchField(fieldId, { items: list });
   };
 
   const moveField = (fromId: string, toId: string) => {
@@ -52,6 +71,7 @@ export function CaseDetail({
     if (moved) list.splice(to, 0, moved);
     setFields(list);
   };
+
 
   const addField = () => {
     if (!charge) return;
@@ -88,18 +108,50 @@ export function CaseDetail({
             {person.charges.map((c) => {
               const isActive = charge?.id === c.id;
               return (
-                <li key={c.id}>
+                <li
+                  key={c.id}
+                  onDragOver={(e) => {
+                    if (!dragChargeId) return;
+                    e.preventDefault();
+                    setOverChargeId(c.id);
+                  }}
+                  onDragLeave={() => setOverChargeId((prev) => (prev === c.id ? null : prev))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragChargeId) onMoveCharge(dragChargeId, c.id);
+                    setDragChargeId(null);
+                    setOverChargeId(null);
+                  }}
+                  className={`rounded ${dragChargeId === c.id ? "opacity-40" : ""} ${
+                    overChargeId === c.id && dragChargeId && dragChargeId !== c.id
+                      ? "ring-1 ring-rose/70"
+                      : ""
+                  }`}
+                >
                   <div
                     role="button"
                     tabIndex={0}
                     onClick={() => onSelectCharge(c.id)}
                     onKeyDown={(e) => e.key === "Enter" && onSelectCharge(c.id)}
-                    className={`group relative cursor-pointer rounded border px-3 py-3 pr-9 text-left transition-colors ${
+                    className={`group relative cursor-pointer rounded border px-3 py-3 pl-8 pr-9 text-left transition-colors ${
                       isActive
                         ? "border-rose/70 bg-wine/40"
                         : "border-wine-soft/40 bg-ink/60 hover:border-parchment/40 hover:bg-wine/20"
                     }`}
                   >
+                    <span
+                      draggable
+                      title="Arrastre para reordenar (la numeración se ajusta automáticamente)"
+                      onClick={(e) => e.stopPropagation()}
+                      onDragStart={() => setDragChargeId(c.id)}
+                      onDragEnd={() => {
+                        setDragChargeId(null);
+                        setOverChargeId(null);
+                      }}
+                      className="absolute left-1.5 top-3 cursor-grab text-parchment/35 hover:text-parchment active:cursor-grabbing"
+                    >
+                      <GripVertical className="h-3.5 w-3.5" />
+                    </span>
                     <div className="flex items-baseline gap-2">
                       <span className="font-display text-xs font-bold text-rose">{c.year}</span>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-dust">{c.n}</span>
@@ -120,6 +172,7 @@ export function CaseDetail({
                     </button>
                   </div>
                 </li>
+
               );
             })}
           </ul>
@@ -243,7 +296,18 @@ export function CaseDetail({
                                   items: field.items.filter((it) => it.id !== item.id),
                                 })
                               }
+                              dragging={dragItem?.itemId === item.id}
+                              onDragStartItem={() =>
+                                setDragItem({ fieldId: field.id, itemId: item.id })
+                              }
+                              onDragEndItem={() => setDragItem(null)}
+                              onDropItem={() => {
+                                if (dragItem && dragItem.fieldId === field.id)
+                                  moveItem(field.id, dragItem.itemId, item.id);
+                                setDragItem(null);
+                              }}
                             />
+
                           ))}
                         </ul>
                       )}
