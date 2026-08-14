@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, FileText, Link2 } from "lucide-react";
+import { X, FileText, Link2, GripVertical } from "lucide-react";
 import type { Proof } from "@/lib/caso-odin-store";
 
 export function normalizeUrl(raw: string): string | null {
@@ -22,9 +22,27 @@ interface ProofRowProps {
   placeholder: string;
   onChange: (patch: Partial<Proof>) => void;
   onRemove: () => void;
+  /** Reordering (drag and drop) hooks — order never renames the item. */
+  dragging?: boolean;
+  onDragStartItem?: () => void;
+  onDragEndItem?: () => void;
+  onDropItem?: () => void;
+  dropActive?: boolean;
 }
 
-export function ProofRow({ item, icon, placeholder, onChange, onRemove }: ProofRowProps) {
+export function ProofRow({
+  item,
+  icon,
+  placeholder,
+  onChange,
+  onRemove,
+  dragging = false,
+  onDragStartItem,
+  onDragEndItem,
+  onDropItem,
+  dropActive = false,
+}: ProofRowProps) {
+
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(item.label);
   const [url, setUrl] = useState(item.url);
