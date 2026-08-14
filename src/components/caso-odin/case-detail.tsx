@@ -108,18 +108,50 @@ export function CaseDetail({
             {person.charges.map((c) => {
               const isActive = charge?.id === c.id;
               return (
-                <li key={c.id}>
+                <li
+                  key={c.id}
+                  onDragOver={(e) => {
+                    if (!dragChargeId) return;
+                    e.preventDefault();
+                    setOverChargeId(c.id);
+                  }}
+                  onDragLeave={() => setOverChargeId((prev) => (prev === c.id ? null : prev))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragChargeId) onMoveCharge(dragChargeId, c.id);
+                    setDragChargeId(null);
+                    setOverChargeId(null);
+                  }}
+                  className={`rounded ${dragChargeId === c.id ? "opacity-40" : ""} ${
+                    overChargeId === c.id && dragChargeId && dragChargeId !== c.id
+                      ? "ring-1 ring-rose/70"
+                      : ""
+                  }`}
+                >
                   <div
                     role="button"
                     tabIndex={0}
                     onClick={() => onSelectCharge(c.id)}
                     onKeyDown={(e) => e.key === "Enter" && onSelectCharge(c.id)}
-                    className={`group relative cursor-pointer rounded border px-3 py-3 pr-9 text-left transition-colors ${
+                    className={`group relative cursor-pointer rounded border px-3 py-3 pl-8 pr-9 text-left transition-colors ${
                       isActive
                         ? "border-rose/70 bg-wine/40"
                         : "border-wine-soft/40 bg-ink/60 hover:border-parchment/40 hover:bg-wine/20"
                     }`}
                   >
+                    <span
+                      draggable
+                      title="Arrastre para reordenar (la numeración se ajusta automáticamente)"
+                      onClick={(e) => e.stopPropagation()}
+                      onDragStart={() => setDragChargeId(c.id)}
+                      onDragEnd={() => {
+                        setDragChargeId(null);
+                        setOverChargeId(null);
+                      }}
+                      className="absolute left-1.5 top-3 cursor-grab text-parchment/35 hover:text-parchment active:cursor-grabbing"
+                    >
+                      <GripVertical className="h-3.5 w-3.5" />
+                    </span>
                     <div className="flex items-baseline gap-2">
                       <span className="font-display text-xs font-bold text-rose">{c.year}</span>
                       <span className="text-[9px] uppercase tracking-[0.2em] text-dust">{c.n}</span>
@@ -140,6 +172,7 @@ export function CaseDetail({
                     </button>
                   </div>
                 </li>
+
               );
             })}
           </ul>
