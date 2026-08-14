@@ -38,6 +38,8 @@ function CasoOdinPage() {
     removeCharge,
     moveCharge,
     addPerson,
+    removePerson,
+    remoteStatus,
     reset,
   } = useCaseState();
 
@@ -110,6 +112,13 @@ function CasoOdinPage() {
                   setSelectedChargeId(person.charges[0]?.id ?? null);
                 }}
                 onPatch={(patch) => updatePerson(person.id, patch)}
+                onRemove={() => {
+                  removePerson(person.id);
+                  if (openPersonId === person.id) {
+                    setOpenPersonId(null);
+                    setSelectedChargeId(null);
+                  }
+                }}
               />
             ))
           : null}
@@ -130,6 +139,23 @@ function CasoOdinPage() {
         >
           <UserPlus className="h-3 w-3" /> Añadir implicado
         </button>
+        <span className="h-4 w-px bg-wine-soft/50" />
+        <span
+          title={
+            remoteStatus === "local"
+              ? "Sin base de datos configurada: los cambios se guardan en este navegador"
+              : "Sincronización con la base de datos"
+          }
+          className="px-1 text-[10px] uppercase tracking-[0.2em] text-dust"
+        >
+          {remoteStatus === "local"
+            ? "Local"
+            : remoteStatus === "syncing"
+              ? "Guardando…"
+              : remoteStatus === "synced"
+                ? "BD"
+                : "Error BD"}
+        </span>
         <span className="h-4 w-px bg-wine-soft/50" />
         <button
           type="button"

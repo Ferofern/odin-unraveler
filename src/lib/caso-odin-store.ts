@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CASE_PEOPLE } from "./caso-odin-data";
+import { loadCaseFromDb, saveCaseToDb } from "./caso-odin-db.functions";
+
 
 export interface Proof {
   id: string;
@@ -228,37 +230,86 @@ function migrate(raw: unknown): CaseState | null {
   };
 }
 
+export type RemoteStatus = "local" | "syncing" | "synced" | "error";
+
 export function useCaseState() {
   const [state, setState] = useState<CaseState>(() => buildInitialState());
   const [hydrated, setHydrated] = useState(false);
+  /** "local" = sin BD configurada (solo navegador). */
+  const [remoteStatus, setRemoteStatus] = useState<RemoteStatus>("local");
+  const remoteEnabled = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const migrated = migrate(JSON.parse(raw));
-        if (migrated) setState(migrated);
+    let cancelled = false;
+
+    const localState = (() => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        return raw ? migrate(JSON.parse(raw)) : null;
+      } catch {
+        return null;
       }
-    } catch {
-      // ignore corrupt storage
-    }
-    setHydrated(true);
+    })();
+
+    (async () => {
+      try {
+        const remote = await loadCaseFromDb();
+        if (cancelled) return;
+        remoteEnabled.current = remote.configured;
+        if (remote.configured) {
+          setRemoteStatus("synced");
+          const parsed = remote.payload ? migrate(JSON.parse(remote.payload)) : null;
+          if (parsed) {
+            setState(parsed);
+            setHydrated(true);
+            return;
+          }
+        }
+      } catch {
+        if (!cancelled) setRemoteStatus(remoteEnabled.current ? "error" : "local");
+      }
+      if (cancelled) return;
+      if (localState) setState(localState);
+      setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const update = useCallback((updater: (prev: CaseState) => CaseState) => {
-    setState((prev) => {
-      const next = updater(prev);
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        window.alert(
-          "No se pudo guardar el cambio (almacenamiento lleno). La información anterior se conserva; libere espacio o use imágenes más pequeñas.",
-        );
-        return prev;
-      }
-      return next;
-    });
+  /** Envía el expediente a la base de datos (con retardo para agrupar cambios). */
+  const scheduleRemoteSave = useCallback((next: CaseState) => {
+    if (!remoteEnabled.current) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      setRemoteStatus("syncing");
+      saveCaseToDb({ data: { payload: JSON.stringify(next) } })
+        .then((res) => setRemoteStatus(res.configured ? "synced" : "local"))
+        .catch(() => setRemoteStatus("error"));
+    }, 800);
   }, []);
+
+  const update = useCallback(
+    (updater: (prev: CaseState) => CaseState) => {
+      setState((prev) => {
+        const next = updater(prev);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          window.alert(
+            "No se pudo guardar el cambio (almacenamiento lleno). La información anterior se conserva; libere espacio o use imágenes más pequeñas.",
+          );
+          return prev;
+        }
+        scheduleRemoteSave(next);
+        return next;
+      });
+    },
+    [scheduleRemoteSave],
+  );
+
 
   const reset = useCallback(() => {
     const fresh = buildInitialState();
@@ -268,7 +319,9 @@ export function useCaseState() {
       // ignore
     }
     setState(fresh);
-  }, []);
+    scheduleRemoteSave(fresh);
+  }, [scheduleRemoteSave]);
+
 
   const updatePerson = useCallback(
     (personId: string, patch: Partial<StoredPerson>) =>
@@ -365,6 +418,8 @@ export function useCaseState() {
   return {
     state,
     hydrated,
+    remoteStatus,
+
     update,
     updatePerson,
     updateCharge,

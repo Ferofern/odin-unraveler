@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { X, Move, ImagePlus } from "lucide-react";
+import { X, Move, ImagePlus, Trash2 } from "lucide-react";
 import { Editable } from "./editable";
 import type { StoredPerson } from "@/lib/caso-odin-store";
 
@@ -9,9 +9,11 @@ interface PersonNodeProps {
   stageRef: React.RefObject<HTMLDivElement | null>;
   onSelect: () => void;
   onPatch: (patch: Partial<StoredPerson>) => void;
+  onRemove: () => void;
 }
 
-export function PersonNode({ person, active, stageRef, onSelect, onPatch }: PersonNodeProps) {
+export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemove }: PersonNodeProps) {
+
   const dragging = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const photoW = person.photoW || 200;
@@ -160,6 +162,19 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch }: Pers
         >
           <ImagePlus className="h-3 w-3" />
         </button>
+
+        <button
+          type="button"
+          title="Eliminar implicado"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`¿Eliminar a «${person.name}» y todas sus acusaciones?`)) onRemove();
+          }}
+          className="absolute right-1.5 top-9 z-20 grid h-6 w-6 place-items-center rounded border border-parchment/30 bg-ink/70 text-parchment opacity-0 transition-opacity hover:bg-wine group-hover:opacity-100"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+
 
         <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden">
           <Editable
