@@ -317,11 +317,63 @@ export function useCaseState() {
       update((prev) => ({
         ...prev,
         people: prev.people.map((p) =>
-          p.id === personId ? { ...p, charges: p.charges.filter((c) => c.id !== chargeId) } : p,
+          p.id === personId
+            ? { ...p, charges: renumberCharges(p.charges.filter((c) => c.id !== chargeId)) }
+            : p,
         ),
       })),
     [update],
   );
 
-  return { state, hydrated, update, updatePerson, updateCharge, addCharge, removeCharge, reset };
+  /** Moves a charge before the target charge and renumbers the whole list. */
+  const moveCharge = useCallback(
+    (personId: string, fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      update((prev) => ({
+        ...prev,
+        people: prev.people.map((p) => {
+          if (p.id !== personId) return p;
+          const list = [...p.charges];
+          const from = list.findIndex((c) => c.id === fromId);
+          const to = list.findIndex((c) => c.id === toId);
+          if (from < 0 || to < 0) return p;
+          const [moved] = list.splice(from, 1);
+          if (moved) list.splice(to, 0, moved);
+          return { ...p, charges: renumberCharges(list) };
+        }),
+      }));
+    },
+    [update],
+  );
+
+  const addPerson = useCallback(() => {
+    let createdId = "";
+    update((prev) => {
+      const created = emptyPerson(prev.people.length + 1);
+      createdId = created.id;
+      return { ...prev, people: [...prev.people, created] };
+    });
+    return createdId;
+  }, [update]);
+
+  const removePerson = useCallback(
+    (personId: string) =>
+      update((prev) => ({ ...prev, people: prev.people.filter((p) => p.id !== personId) })),
+    [update],
+  );
+
+  return {
+    state,
+    hydrated,
+    update,
+    updatePerson,
+    updateCharge,
+    addCharge,
+    removeCharge,
+    moveCharge,
+    addPerson,
+    removePerson,
+    reset,
+  };
 }
+
