@@ -20,18 +20,28 @@ export async function readCase(caseId: string) {
       return { configured: true, payload: null };
     }
 
-    // 2. Mapeo seguro con validación de arreglos vacíos
+    // 2. Mapeo seguro con validación de arreglos vacíos y posicionamiento en Grid
+    const columnsPerRow = 4; // Ajusta este número si quieres más o menos tarjetas por fila
+    const xSpacing = 100 / columnsPerRow; // Calcula el % de separación horizontal
+
     const people = (implicados || []).map((imp: any, index: number) => {
       // Comparación segura convirtiendo todo a string y limpiando espacios
       const impIdStr = String(imp.id).trim();
       const impCharges = (acusaciones || []).filter((a: any) => String(a.implicado_id).trim() === impIdStr);
       
+      // Lógica de cuadrícula para soportar N implicados
+      const columnIndex = index % columnsPerRow; // 0, 1, 2, 3 (columna actual)
+      const rowIndex = Math.floor(index / columnsPerRow); // 0, 1, 2, 3... (fila actual)
+
+      const calculatedX = (xSpacing / 2) + (columnIndex * xSpacing); // Centra la tarjeta en su columna
+      const calculatedY = 27 + (rowIndex * 35); // 27 es el margen superior inicial, 35 es el espacio vertical entre filas
+
       return {
         id: impIdStr.startsWith('p') ? impIdStr : `p-${impIdStr}`, // Respeta el ID si ya tiene el prefijo de tu app
         name: imp.nombre || "Nuevo Implicado",
         role: imp.rol || "Rol no definido",
-        x: 12.5 + (index * 25), // Distribución inicial en X
-        y: 27,
+        x: calculatedX, // Coordenada X adaptativa
+        y: calculatedY, // Coordenada Y adaptativa (bajará en la página)
         w: 240,
         h: 190,
         photo: "",
@@ -105,7 +115,6 @@ export async function readCase(caseId: string) {
   }
 }
 
-// ... Mantén tu función writeCase tal cual la teníamos ...
 export async function writeCase(caseId: string, payload: string) {
   if (!supabaseUrl || !supabaseKey) return { configured: false, saved: false };
 
