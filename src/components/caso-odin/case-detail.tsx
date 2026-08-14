@@ -18,6 +18,7 @@ interface CaseDetailProps {
   onPatchCharge: (chargeId: string, patch: Partial<StoredCharge>) => void;
   onAddCharge: () => void;
   onRemoveCharge: (chargeId: string) => void;
+  onMoveCharge: (fromId: string, toId: string) => void;
   onClose: () => void;
 }
 
@@ -28,10 +29,14 @@ export function CaseDetail({
   onPatchCharge,
   onAddCharge,
   onRemoveCharge,
+  onMoveCharge,
   onClose,
 }: CaseDetailProps) {
   const charge = person.charges.find((c) => c.id === selectedChargeId) ?? person.charges[0] ?? null;
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragChargeId, setDragChargeId] = useState<string | null>(null);
+  const [overChargeId, setOverChargeId] = useState<string | null>(null);
+  const [dragItem, setDragItem] = useState<{ fieldId: string; itemId: string } | null>(null);
 
   const setFields = (fields: CaseField[]) => {
     if (charge) onPatchCharge(charge.id, { fields });
@@ -40,6 +45,20 @@ export function CaseDetail({
   const patchField = (fieldId: string, patch: Partial<CaseField>) => {
     if (!charge) return;
     setFields(charge.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)));
+  };
+
+  /** Reorders items inside a list field. Labels are never changed by order. */
+  const moveItem = (fieldId: string, fromId: string, toId: string) => {
+    if (!charge || fromId === toId) return;
+    const field = charge.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    const list = [...field.items];
+    const from = list.findIndex((it) => it.id === fromId);
+    const to = list.findIndex((it) => it.id === toId);
+    if (from < 0 || to < 0) return;
+    const [moved] = list.splice(from, 1);
+    if (moved) list.splice(to, 0, moved);
+    patchField(fieldId, { items: list });
   };
 
   const moveField = (fromId: string, toId: string) => {
@@ -52,6 +71,7 @@ export function CaseDetail({
     if (moved) list.splice(to, 0, moved);
     setFields(list);
   };
+
 
   const addField = () => {
     if (!charge) return;
