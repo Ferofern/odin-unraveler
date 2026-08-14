@@ -130,12 +130,34 @@ export function ProofRow({
   }
 
   return (
-    <li className="group/row flex items-start gap-2">
+    <li
+      onDragOver={(e) => {
+        if (onDropItem) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!onDropItem) return;
+        e.preventDefault();
+        onDropItem();
+      }}
+      className={`group/row flex items-start gap-2 rounded transition-colors ${
+        dragging ? "opacity-40" : ""
+      } ${dropActive ? "bg-wine/25" : ""}`}
+    >
+      <span
+        draggable={Boolean(onDragStartItem)}
+        title="Arrastre para reordenar"
+        onDragStart={onDragStartItem}
+        onDragEnd={onDragEndItem}
+        className="mt-0.5 cursor-grab text-parchment/25 opacity-0 transition-opacity hover:text-parchment active:cursor-grabbing group-hover/row:opacity-100"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </span>
       {icon === "foja" ? (
         <FileText className="mt-0.5 h-3.5 w-3.5 flex-none text-wine-soft" />
       ) : (
         <span className="mt-1.5 h-1.5 w-1.5 flex-none rotate-45 bg-wine-soft" />
       )}
+
       <span
         role="button"
         tabIndex={0}
