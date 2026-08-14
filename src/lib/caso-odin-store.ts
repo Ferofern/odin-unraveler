@@ -110,10 +110,19 @@ export function buildInitialState(): CaseState {
   };
 }
 
+export function chargeNumber(index: number) {
+  return `Acusación ${String(index + 1).padStart(2, "0")}`;
+}
+
+/** Renumbers charges according to their current order. */
+export function renumberCharges(charges: StoredCharge[]): StoredCharge[] {
+  return charges.map((c, i) => ({ ...c, n: chargeNumber(i) }));
+}
+
 export function emptyCharge(index: number): StoredCharge {
   return {
     id: uid("c"),
-    n: `Acusación ${index}`,
+    n: chargeNumber(index - 1),
     year: "S/F",
     title: "Nueva acusación",
     fields: [
@@ -124,6 +133,23 @@ export function emptyCharge(index: number): StoredCharge {
     ],
   };
 }
+
+export function emptyPerson(index: number): StoredPerson {
+  return {
+    id: uid("p"),
+    name: `Nuevo implicado ${index}`,
+    role: `Implicada ${String(index).padStart(2, "0")}`,
+    x: 50,
+    y: 50,
+    w: 240,
+    h: 190,
+    photo: "",
+    photoW: 200,
+    photoRatio: 0.75,
+    charges: [],
+  };
+}
+
 
 /** Migrates any previously stored shape (v2 and earlier) into the v3 model without data loss. */
 function migrate(raw: unknown): CaseState | null {
