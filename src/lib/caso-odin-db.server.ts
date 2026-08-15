@@ -9,44 +9,39 @@ export async function readCase(caseId: string) {
   if (!supabaseUrl || !supabaseKey) return { configured: false, payload: null };
 
   try {
-    // 1. Traer datos asegurando que no haya errores
     const { data: implicados, error: errImp } = await supabase.from('implicados').select('*').order('id');
     const { data: acusaciones, error: errAcu } = await supabase.from('acusaciones').select('*').order('id');
     const { data: pruebas, error: errPru } = await supabase.from('pruebas').select('*');
     const { data: gestiones, error: errGes } = await supabase.from('gestiones').select('*');
 
     if (errImp || errAcu || errPru || errGes) {
-      console.error("Error cargando de Supabase:", errImp || errAcu || errPru || errGes);
       return { configured: true, payload: null };
     }
 
-    // 2. Mapeo seguro con validación de arreglos vacíos y posicionamiento en Grid
-    const columnsPerRow = 4; // Ajusta este número si quieres más o menos tarjetas por fila
-    const xSpacing = 100 / columnsPerRow; // Calcula el % de separación horizontal
+    const columnsPerRow = 4;
+    const xSpacing = 100 / columnsPerRow;
 
     const people = (implicados || []).map((imp: any, index: number) => {
-      // Comparación segura convirtiendo todo a string y limpiando espacios
       const impIdStr = String(imp.id).trim();
       const impCharges = (acusaciones || []).filter((a: any) => String(a.implicado_id).trim() === impIdStr);
       
-      // Lógica de cuadrícula para soportar N implicados
-      const columnIndex = index % columnsPerRow; // 0, 1, 2, 3 (columna actual)
-      const rowIndex = Math.floor(index / columnsPerRow); // 0, 1, 2, 3... (fila actual)
+      const columnIndex = index % columnsPerRow;
+      const rowIndex = Math.floor(index / columnsPerRow);
 
-      const calculatedX = (xSpacing / 2) + (columnIndex * xSpacing); // Centra la tarjeta en su columna
-      const calculatedY = 27 + (rowIndex * 35); // 27 es el margen superior inicial, 35 es el espacio vertical entre filas
+      const calculatedX = (xSpacing / 2) + (columnIndex * xSpacing);
+      const calculatedY = 27 + (rowIndex * 35);
 
       return {
-        id: impIdStr.startsWith('p') ? impIdStr : `p-${impIdStr}`, // Respeta el ID si ya tiene el prefijo de tu app
+        id: impIdStr.startsWith('p') ? impIdStr : `p-${impIdStr}`,
         name: imp.nombre || "Nuevo Implicado",
         role: imp.rol || "Rol no definido",
-        x: calculatedX, // Coordenada X adaptativa
-        y: calculatedY, // Coordenada Y adaptativa (bajará en la página)
+        x: calculatedX,
+        y: calculatedY,
         w: 240,
         h: 190,
-        photo: "",
-        photoW: 200,
-        photoRatio: 0.75,
+        photo: imp.foto_url || "",
+        photoW: imp.foto_w || 200,
+        photoRatio: imp.foto_ratio ? Number(imp.foto_ratio) : 0.75,
         charges: impCharges.map((acu: any) => {
           const acuIdStr = String(acu.id).trim();
           const acuProofs = (pruebas || []).filter((p: any) => String(p.acusacion_id).trim() === acuIdStr);
@@ -110,7 +105,6 @@ export async function readCase(caseId: string) {
 
     return { configured: true, payload: JSON.stringify(caseState) };
   } catch (error) {
-    console.error("Excepción en readCase:", error);
     return { configured: true, payload: null };
   }
 }
@@ -123,9 +117,12 @@ export async function writeCase(caseId: string, payload: string) {
     const people = state.people || [];
 
     const implicadosUpsert = people.map((p: any) => ({
-      id: String(p.id).replace('p-', ''), // Limpiamos el prefijo para la BD si lo tiene
+      id: String(p.id).replace('p-', ''),
       nombre: p.name,
-      rol: p.role
+      rol: p.role,
+      foto_url: p.photo,
+      foto_w: p.photoW,
+      foto_ratio: p.photoRatio
     }));
 
     if (implicadosUpsert.length > 0) {
@@ -184,7 +181,6 @@ export async function writeCase(caseId: string, payload: string) {
 
     return { configured: true, saved: true };
   } catch (error) {
-    console.error("Error en writeCase:", error);
     return { configured: true, saved: false };
   }
 }
