@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { X, Move, ImagePlus, Trash2 } from "lucide-react";
+import { X, ImagePlus, Trash2 } from "lucide-react";
 import { Editable } from "./editable";
 import type { StoredPerson } from "@/lib/caso-odin-store";
 import { supabase } from "@/lib/supabase";
@@ -147,23 +147,14 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
       }}
     >
       <div
-        className={`relative overflow-hidden rounded-md border p-4 text-center transition-shadow ${
+        onPointerDown={startDrag}
+        className={`relative overflow-hidden rounded-md border p-4 text-center transition-shadow cursor-grab active:cursor-grabbing ${
           active
             ? "node-active border-parchment/60"
             : "node-glow border-parchment/25 bg-[linear-gradient(150deg,oklch(0.42_0.15_18),oklch(0.35_0.12_18)_55%,oklch(0.25_0.08_18)_100%)] hover:border-parchment/60"
         }`}
         style={{ width: person.w, height: person.h }}
       >
-        <button
-          type="button"
-          title="Mover"
-          onPointerDown={startDrag}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-1.5 top-1.5 z-20 grid h-6 w-6 cursor-grab place-items-center rounded border border-parchment/30 bg-ink/70 text-parchment opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100"
-        >
-          <Move className="h-3 w-3" />
-        </button>
-
         <button
           type="button"
           title={person.photo ? "Reemplazar fotografía" : "Cargar fotografía"}
@@ -188,20 +179,22 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
           <Trash2 className="h-3 w-3" />
         </button>
 
-        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden">
-          <Editable
-            value={person.name}
-            onCommit={(v) => onPatch({ name: v || person.name })}
-            className={`break-words font-semibold uppercase leading-snug tracking-wider text-parchment ${
-              person.w >= 340 ? "text-base" : person.w >= 260 ? "text-sm" : "text-xs"
-            }`}
-            multiline
-            dblClickToEdit
-          />
-          <small className="text-[10px] uppercase tracking-[0.18em] text-parchment/70">
+        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden pointer-events-none">
+          <div className="pointer-events-auto">
+            <Editable
+              value={person.name}
+              onCommit={(v) => onPatch({ name: v || person.name })}
+              className={`break-words font-semibold uppercase leading-snug tracking-wider text-parchment ${
+                person.w >= 340 ? "text-base" : person.w >= 260 ? "text-sm" : "text-xs"
+              }`}
+              multiline
+              dblClickToEdit
+            />
+          </div>
+          <small className="text-[10px] uppercase tracking-[0.18em] text-parchment/70 pointer-events-auto">
             {person.charges.length} {person.charges.length === 1 ? "Acusación" : "Acusaciones"}
           </small>
-          <span className="text-[9px] uppercase tracking-[0.24em] text-parchment/45">{person.role}</span>
+          <span className="text-[9px] uppercase tracking-[0.24em] text-parchment/45 pointer-events-auto">{person.role}</span>
         </div>
 
         <div
@@ -227,10 +220,13 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
           <button
             type="button"
             title="Eliminar fotografía"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
-              if (window.confirm("¿Está seguro de que desea eliminar esta fotografía?"))
+              if (window.confirm("¿Está seguro de que desea eliminar esta fotografía?")) {
+                const fileName = person.photo.split('/').pop();
+                if (fileName) await supabase.storage.from('fotos_implicados').remove([fileName]);
                 onPatch({ photo: "" });
+              }
             }}
             className="absolute right-1 top-1 z-20 grid h-6 w-6 place-items-center rounded border border-parchment/30 bg-ink/80 text-parchment opacity-0 transition-opacity hover:bg-wine group-hover:opacity-100"
           >

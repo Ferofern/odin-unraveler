@@ -47,7 +47,6 @@ export function CaseDetail({
     setFields(charge.fields.map((f) => (f.id === fieldId ? { ...f, ...patch } : f)));
   };
 
-  /** Reorders items inside a list field. Labels are never changed by order. */
   const moveItem = (fieldId: string, fromId: string, toId: string) => {
     if (!charge || fromId === toId) return;
     const field = charge.fields.find((f) => f.id === fieldId);
@@ -72,7 +71,6 @@ export function CaseDetail({
     setFields(list);
   };
 
-
   const addField = () => {
     if (!charge) return;
     const name = window.prompt("Nombre del nuevo campo:", "");
@@ -91,7 +89,6 @@ export function CaseDetail({
       className="fixed inset-0 z-30 flex flex-col bg-[linear-gradient(180deg,oklch(0.08_0.02_18),oklch(0.05_0.01_17)_45%)] md:flex-row"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 30% — Acusaciones */}
       <aside className="flex max-h-[45vh] w-full flex-col border-b border-wine-soft/40 md:max-h-none md:w-[30%] md:border-b-0 md:border-r">
         <header className="border-b border-wine-soft/40 px-6 py-5">
           <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">{person.role}</p>
@@ -105,8 +102,10 @@ export function CaseDetail({
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <ul className="flex flex-col gap-2">
-            {person.charges.map((c) => {
+            {person.charges.map((c, idx) => {
               const isActive = charge?.id === c.id;
+              const displayN = `ACUSACIÓN ${idx + 1}`;
+
               return (
                 <li
                   key={c.id}
@@ -154,7 +153,7 @@ export function CaseDetail({
                     </span>
                     <div className="flex items-baseline gap-2">
                       <span className="font-display text-xs font-bold text-rose">{c.year}</span>
-                      <span className="text-[9px] uppercase tracking-[0.2em] text-dust">{c.n}</span>
+                      <span className="text-[9px] uppercase tracking-[0.2em] text-dust">{displayN}</span>
                     </div>
                     <p className="mt-1 break-words text-[11.5px] leading-snug text-parchment/85">
                       {c.title.length > 78 ? `${c.title.slice(0, 75)}…` : c.title}
@@ -172,7 +171,6 @@ export function CaseDetail({
                     </button>
                   </div>
                 </li>
-
               );
             })}
           </ul>
@@ -187,7 +185,6 @@ export function CaseDetail({
         </div>
       </aside>
 
-      {/* 70% — Campos y detalle */}
       <div className="relative flex w-full flex-1 flex-col md:w-[70%]">
         <button
           type="button"
@@ -201,7 +198,9 @@ export function CaseDetail({
         {charge ? (
           <>
             <header className="border-b border-wine-soft/40 px-8 py-6 pr-16">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">{charge.n}</p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">
+                {`ACUSACIÓN ${person.charges.findIndex((c) => c.id === charge.id) + 1}`}
+              </p>
               <h3 className="font-display mt-2 text-xl leading-snug text-parchment">
                 <Editable
                   value={charge.title}

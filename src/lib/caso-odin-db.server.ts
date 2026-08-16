@@ -9,14 +9,12 @@ export async function readCase(caseId: string) {
   if (!supabaseUrl || !supabaseKey) return { configured: false, payload: null };
 
   try {
-    const { data: implicados, error: errImp } = await supabase.from('implicados').select('*').order('id');
-    const { data: acusaciones, error: errAcu } = await supabase.from('acusaciones').select('*').order('id');
+    const { data: implicados, error: errImp } = await supabase.from('implicados').select('*').order('orden', { ascending: true, nullsFirst: false }).order('id');
+    const { data: acusaciones, error: errAcu } = await supabase.from('acusaciones').select('*').order('orden', { ascending: true, nullsFirst: false }).order('id');
     const { data: pruebas, error: errPru } = await supabase.from('pruebas').select('*');
     const { data: gestiones, error: errGes } = await supabase.from('gestiones').select('*');
 
-    if (errImp || errAcu || errPru || errGes) {
-      return { configured: true, payload: null };
-    }
+    if (errImp || errAcu || errPru || errGes) return { configured: true, payload: null };
 
     const columnsPerRow = 4;
     const xSpacing = 100 / columnsPerRow;
@@ -28,28 +26,25 @@ export async function readCase(caseId: string) {
       const columnIndex = index % columnsPerRow;
       const rowIndex = Math.floor(index / columnsPerRow);
 
-      const calculatedX = (xSpacing / 2) + (columnIndex * xSpacing);
-      const calculatedY = 27 + (rowIndex * 35);
-
       return {
         id: impIdStr.startsWith('p') ? impIdStr : `p-${impIdStr}`,
         name: imp.nombre || "Nuevo Implicado",
-        role: imp.rol || "Rol no definido",
-        x: calculatedX,
-        y: calculatedY,
-        w: 240,
-        h: 190,
+        role: imp.rol || `ACUSADO 0${index + 1}`,
+        x: imp.x !== null ? Number(imp.x) : (xSpacing / 2) + (columnIndex * xSpacing),
+        y: imp.y !== null ? Number(imp.y) : 27 + (rowIndex * 35),
+        w: imp.w !== null ? Number(imp.w) : 240,
+        h: imp.h !== null ? Number(imp.h) : 190,
         photo: imp.foto_url || "",
         photoW: imp.foto_w || 200,
         photoRatio: imp.foto_ratio ? Number(imp.foto_ratio) : 0.75,
-        charges: impCharges.map((acu: any) => {
+        charges: impCharges.map((acu: any, acuIdx: number) => {
           const acuIdStr = String(acu.id).trim();
           const acuProofs = (pruebas || []).filter((p: any) => String(p.acusacion_id).trim() === acuIdStr);
           const acuTasks = (gestiones || []).filter((g: any) => String(g.acusacion_id).trim() === acuIdStr);
 
           return {
             id: acuIdStr.startsWith('c') ? acuIdStr : `c-${acuIdStr}`,
-            n: acu.numero || "Acusación S/N",
+            n: acu.numero || `ACUSACIÓN ${acuIdx + 1}`,
             year: acu.fecha || "S/F",
             title: acu.titulo || "Sin título",
             fields: [
@@ -114,12 +109,22 @@ export async function writeCase(caseId: string, payload: string) {
 
   try {
     const state = JSON.parse(payload);
-    const people = state.people || [];
+    let people = state.people || [];
 
-    const implicadosUpsert = people.map((p: any) => ({
+    const sortedPeople = [...people].sort((a, b) => {
+      if (Math.abs(a.y - b.y) > 10) return a.y - b.y;
+      return a.x - b.x;
+    });
+
+    const implicadosUpsert = sortedPeople.map((p: any, idx: number) => ({
       id: String(p.id).replace('p-', ''),
       nombre: p.name,
-      rol: p.role,
+      rol: `ACUSADO ${String(idx + 1).padStart(2, '0')}`,
+      x: p.x,
+      y: p.y,
+      w: p.w,
+      h: p.h,
+      orden: idx + 1,
       foto_url: p.photo,
       foto_w: p.photoW,
       foto_ratio: p.photoRatio
@@ -133,17 +138,19 @@ export async function writeCase(caseId: string, payload: string) {
     const pruebasUpsert: any[] = [];
     const gestionesUpsert: any[] = [];
 
-    for (const p of people) {
-      for (const c of p.charges || []) {
+    for (const p of sortedPeople) {
+      const pCharges = p.charges || [];
+      for (let i = 0; i < pCharges.length; i++) {
+        const c = pCharges[i];
         const justField = c.fields.find((f: any) => f.label === "La justificación");
         const tipoField = c.fields.find((f: any) => f.label === "Tipo penal");
-        
         const cleanAcuId = String(c.id).replace('c-', '');
 
         acusacionesUpsert.push({
           id: cleanAcuId,
           implicado_id: String(p.id).replace('p-', ''),
-          numero: c.n,
+          numero: `ACUSACIÓN ${i + 1}`,
+          orden: i + 1,
           fecha: c.year,
           titulo: c.title,
           justificacion: justField ? justField.text : "",
@@ -178,6 +185,26 @@ export async function writeCase(caseId: string, payload: string) {
     if (acusacionesUpsert.length > 0) await supabase.from('acusaciones').upsert(acusacionesUpsert);
     if (pruebasUpsert.length > 0) await supabase.from('pruebas').upsert(pruebasUpsert);
     if (gestionesUpsert.length > 0) await supabase.from('gestiones').upsert(gestionesUpsert);
+
+    const { data: dbImp } = await supabase.from('implicados').select('id');
+    const currentImpIds = implicadosUpsert.map(i => i.id);
+    const toDelImp = (dbImp || []).filter(row => !currentImpIds.includes(String(row.id))).map(row => row.id);
+    if (toDelImp.length > 0) await supabase.from('implicados').delete().in('id', toDelImp);
+
+    const { data: dbAcu } = await supabase.from('acusaciones').select('id');
+    const currentAcuIds = acusacionesUpsert.map(a => a.id);
+    const toDelAcu = (dbAcu || []).filter(row => !currentAcuIds.includes(String(row.id))).map(row => row.id);
+    if (toDelAcu.length > 0) await supabase.from('acusaciones').delete().in('id', toDelAcu);
+
+    const { data: dbPru } = await supabase.from('pruebas').select('id');
+    const currentPruIds = pruebasUpsert.map(p => p.id);
+    const toDelPru = (dbPru || []).filter(row => !currentPruIds.includes(String(row.id))).map(row => row.id);
+    if (toDelPru.length > 0) await supabase.from('pruebas').delete().in('id', toDelPru);
+
+    const { data: dbGes } = await supabase.from('gestiones').select('id');
+    const currentGesIds = gestionesUpsert.map(g => g.id);
+    const toDelGes = (dbGes || []).filter(row => !currentGesIds.includes(String(row.id))).map(row => row.id);
+    if (toDelGes.length > 0) await supabase.from('gestiones').delete().in('id', toDelGes);
 
     return { configured: true, saved: true };
   } catch (error) {
