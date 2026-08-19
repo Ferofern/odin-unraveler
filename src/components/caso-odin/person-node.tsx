@@ -180,7 +180,7 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
         </button>
 
         <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden pointer-events-none">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto" onPointerDown={(e) => e.stopPropagation()}>
             <Editable
               value={person.name}
               onCommit={(v) => onPatch({ name: v || person.name })}
@@ -188,7 +188,6 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
                 person.w >= 340 ? "text-base" : person.w >= 260 ? "text-sm" : "text-xs"
               }`}
               multiline
-              dblClickToEdit
             />
           </div>
           <small className="text-[10px] uppercase tracking-[0.18em] text-parchment/70 pointer-events-auto">
