@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CASE_PEOPLE } from "./caso-odin-data";
-import { loadCaseFromDb, saveCaseToDb } from "./caso-odin-db.functions";
-
+import { loadCaseFromDb } from "./caso-odin-db.functions";
 
 export interface Proof {
   id: string;
@@ -15,9 +14,7 @@ export interface CaseField {
   id: string;
   label: string;
   type: FieldType;
-  /** Used when type === "text" */
   text: string;
-  /** Used when type === "proofs" or "tasks" */
   items: Proof[];
 }
 
@@ -38,9 +35,7 @@ export interface StoredPerson {
   w: number;
   h: number;
   photo: string;
-  /** Rendered photo width in px (height derives from the ratio). */
   photoW: number;
-  /** height / width of the loaded image. */
   photoRatio: number;
   charges: StoredCharge[];
 }
@@ -116,7 +111,6 @@ export function chargeNumber(index: number) {
   return `Acusación ${String(index + 1).padStart(2, "0")}`;
 }
 
-/** Renumbers charges according to their current order. */
 export function renumberCharges(charges: StoredCharge[]): StoredCharge[] {
   return charges.map((c, i) => ({ ...c, n: chargeNumber(i) }));
 }
@@ -152,8 +146,6 @@ export function emptyPerson(index: number): StoredPerson {
   };
 }
 
-
-/** Migrates any previously stored shape (v2 and earlier) into the v3 model without data loss. */
 function migrate(raw: unknown): CaseState | null {
   const parsed = raw as Partial<CaseState> & { people?: unknown };
   if (!parsed || !Array.isArray(parsed.people)) return null;
@@ -235,10 +227,8 @@ export type RemoteStatus = "local" | "syncing" | "synced" | "error";
 export function useCaseState() {
   const [state, setState] = useState<CaseState>(() => buildInitialState());
   const [hydrated, setHydrated] = useState(false);
-  /** "local" = sin BD configurada (solo navegador). */
   const [remoteStatus, setRemoteStatus] = useState<RemoteStatus>("local");
   const remoteEnabled = useRef(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,18 +269,6 @@ export function useCaseState() {
     };
   }, []);
 
-  /** Envía el expediente a la base de datos (con retardo para agrupar cambios). */
-  const scheduleRemoteSave = useCallback((next: CaseState) => {
-    if (!remoteEnabled.current) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      setRemoteStatus("syncing");
-      saveCaseToDb({ data: { payload: JSON.stringify(next) } })
-        .then((res) => setRemoteStatus(res.configured ? "synced" : "local"))
-        .catch(() => setRemoteStatus("error"));
-    }, 800);
-  }, []);
-
   const update = useCallback(
     (updater: (prev: CaseState) => CaseState) => {
       setState((prev) => {
@@ -303,25 +281,19 @@ export function useCaseState() {
           );
           return prev;
         }
-        scheduleRemoteSave(next);
         return next;
       });
     },
-    [scheduleRemoteSave],
+    [],
   );
-
 
   const reset = useCallback(() => {
     const fresh = buildInitialState();
     try {
       window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    } catch {}
     setState(fresh);
-    scheduleRemoteSave(fresh);
-  }, [scheduleRemoteSave]);
-
+  }, []);
 
   const updatePerson = useCallback(
     (personId: string, patch: Partial<StoredPerson>) =>
@@ -378,7 +350,6 @@ export function useCaseState() {
     [update],
   );
 
-  /** Moves a charge before the target charge and renumbers the whole list. */
   const moveCharge = useCallback(
     (personId: string, fromId: string, toId: string) => {
       if (fromId === toId) return;
@@ -431,4 +402,3 @@ export function useCaseState() {
     reset,
   };
 }
-
