@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Plus, Trash2, X, GripVertical } from "lucide-react";
+import { Plus, Trash2, X, GripVertical, RefreshCw } from "lucide-react";
 import { Editable } from "./editable";
 import { ProofRow } from "./proof-row";
+import { SyncModal } from "./sync-modal";
 import {
   uid,
   textField,
   listField,
+  type Proof,
   type CaseField,
   type StoredCharge,
   type StoredPerson,
@@ -13,23 +15,29 @@ import {
 
 interface CaseDetailProps {
   person: StoredPerson;
+  currentCaseId?: string;
   selectedChargeId: string | null;
   onSelectCharge: (id: string) => void;
+  onPatchPerson?: (patch: Partial<StoredPerson>) => void;
   onPatchCharge: (chargeId: string, patch: Partial<StoredCharge>) => void;
   onAddCharge: () => void;
   onRemoveCharge: (chargeId: string) => void;
   onMoveCharge: (fromId: string, toId: string) => void;
+  onSyncCharges?: (charges: StoredCharge[]) => Promise<number>;
   onClose: () => void;
 }
 
 export function CaseDetail({
   person,
+  currentCaseId = "caso-odin",
   selectedChargeId,
   onSelectCharge,
+  onPatchPerson,
   onPatchCharge,
   onAddCharge,
   onRemoveCharge,
   onMoveCharge,
+  onSyncCharges,
   onClose,
 }: CaseDetailProps) {
   const charge = person.charges.find((c) => c.id === selectedChargeId) ?? person.charges[0] ?? null;
@@ -37,6 +45,7 @@ export function CaseDetail({
   const [dragChargeId, setDragChargeId] = useState<string | null>(null);
   const [overChargeId, setOverChargeId] = useState<string | null>(null);
   const [dragItem, setDragItem] = useState<{ fieldId: string; itemId: string } | null>(null);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   const setFields = (fields: CaseField[]) => {
     if (charge) onPatchCharge(charge.id, { fields });
@@ -89,14 +98,92 @@ export function CaseDetail({
       className="fixed inset-0 z-30 flex flex-col bg-[linear-gradient(180deg,oklch(0.08_0.02_18),oklch(0.05_0.01_17)_45%)] md:flex-row"
       onClick={(e) => e.stopPropagation()}
     >
-      <aside className="flex max-h-[45vh] w-full flex-col border-b border-wine-soft/40 md:max-h-none md:w-[30%] md:border-b-0 md:border-r">
-        <header className="border-b border-wine-soft/40 px-6 py-5">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">{person.role}</p>
-          <h2 className="font-display mt-2 break-words text-lg leading-tight text-parchment">
-            {person.name}
+      <aside className="flex max-h-[48vh] w-full flex-col border-b border-wine-soft/40 md:max-h-none md:w-[32%] md:border-b-0 md:border-r">
+        <header className="border-b border-wine-soft/40 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">
+              {onPatchPerson ? (
+                <Editable value={person.role} onCommit={(v) => onPatchPerson({ role: v || person.role })} />
+              ) : (
+                person.role
+              )}
+            </p>
+            {onSyncCharges && (
+              <button
+                type="button"
+                title="Sincronizar acusaciones de este implicado con otro caso"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="flex items-center gap-1.5 rounded border border-wine-soft/60 bg-ink/80 px-2 py-1 text-[10px] uppercase tracking-wider text-rose transition-colors hover:border-rose hover:text-parchment"
+              >
+                <RefreshCw className="h-3 w-3" /> Sincronizar
+              </button>
+            )}
+          </div>
+
+          <h2 className="font-display mt-1 break-words text-lg leading-tight text-parchment">
+            {onPatchPerson ? (
+              <Editable value={person.name} onCommit={(v) => onPatchPerson({ name: v || person.name })} />
+            ) : (
+              person.name
+            )}
           </h2>
-          <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-dust">
-            {person.charges.length} {person.charges.length === 1 ? "acusación" : "acusaciones"}
+
+          {/* Ficha editable del cliente / implicado */}
+          <div className="mt-3 space-y-1.5 rounded border border-wine-soft/30 bg-ink/40 p-2.5 text-[11px] text-dust">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-parchment/80">C.I. / Cédula:</span>
+              {onPatchPerson ? (
+                <Editable
+                  value={person.cedula || ""}
+                  placeholder="Clic para agregar cédula"
+                  onCommit={(v) => onPatchPerson({ cedula: v })}
+                  className="font-mono text-rose"
+                />
+              ) : (
+                <span className="font-mono text-rose">{person.cedula || "No registrada"}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-parchment/80">Teléfono:</span>
+              {onPatchPerson ? (
+                <Editable
+                  value={person.telefono || ""}
+                  placeholder="Clic para agregar teléfono"
+                  onCommit={(v) => onPatchPerson({ telefono: v })}
+                />
+              ) : (
+                <span>{person.telefono || "No registrado"}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-parchment/80">Correo:</span>
+              {onPatchPerson ? (
+                <Editable
+                  value={person.email || ""}
+                  placeholder="Clic para agregar email"
+                  onCommit={(v) => onPatchPerson({ email: v })}
+                />
+              ) : (
+                <span>{person.email || "No registrado"}</span>
+              )}
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span className="font-semibold text-parchment/80">Dirección:</span>
+              {onPatchPerson ? (
+                <Editable
+                  value={person.direccion || ""}
+                  placeholder="Clic para agregar dirección"
+                  onCommit={(v) => onPatchPerson({ direccion: v })}
+                  multiline
+                />
+              ) : (
+                <span>{person.direccion || "No registrada"}</span>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-dust">
+            {person.charges.length} {person.charges.length === 1 ? "acusación registrada" : "acusaciones registradas"}
           </p>
         </header>
 
@@ -140,24 +227,17 @@ export function CaseDetail({
                   >
                     <span
                       draggable
-                      title="Arrastre para reordenar (la numeración se ajusta automáticamente)"
-                      onClick={(e) => e.stopPropagation()}
-                      onDragStart={() => setDragChargeId(c.id)}
-                      onDragEnd={() => {
-                        setDragChargeId(null);
-                        setOverChargeId(null);
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        setDragChargeId(c.id);
                       }}
-                      className="absolute left-1.5 top-3 cursor-grab text-parchment/35 hover:text-parchment active:cursor-grabbing"
+                      onDragEnd={() => setDragChargeId(null)}
+                      title="Arrastre para reordenar"
+                      className="absolute left-2 top-3.5 grid h-5 w-4 cursor-grab place-items-center text-dust opacity-0 transition-opacity hover:text-parchment group-hover:opacity-100 active:cursor-grabbing"
                     >
                       <GripVertical className="h-3.5 w-3.5" />
                     </span>
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-display text-xs font-bold text-rose">{c.year}</span>
-                      <span className="text-[9px] uppercase tracking-[0.2em] text-dust">{displayN}</span>
-                    </div>
-                    <p className="mt-1 break-words text-[11.5px] leading-snug text-parchment/85">
-                      {c.title.length > 78 ? `${c.title.slice(0, 75)}…` : c.title}
-                    </p>
+
                     <button
                       type="button"
                       title="Eliminar acusación"
@@ -165,10 +245,22 @@ export function CaseDetail({
                         e.stopPropagation();
                         onRemoveCharge(c.id);
                       }}
-                      className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded border border-parchment/25 text-parchment/70 opacity-0 transition-opacity hover:bg-wine hover:text-parchment group-hover:opacity-100"
+                      className="absolute right-2 top-3 grid h-6 w-6 place-items-center rounded text-dust opacity-0 transition-opacity hover:bg-wine hover:text-parchment group-hover:opacity-100"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
+
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-wine-soft">
+                      <span>{displayN}</span>
+                      <Editable
+                        value={c.year}
+                        onCommit={(v) => onPatchCharge(c.id, { year: v || "S/F" })}
+                        className="text-dust"
+                      />
+                    </div>
+                    <h3 className="mt-1 line-clamp-2 text-xs font-semibold leading-snug text-parchment">
+                      {c.title}
+                    </h3>
                   </div>
                 </li>
               );
@@ -178,147 +270,133 @@ export function CaseDetail({
           <button
             type="button"
             onClick={onAddCharge}
-            className="mt-4 flex w-full items-center justify-center gap-2 border border-wine-soft px-3 py-2.5 text-[10px] uppercase tracking-[0.2em] text-rose transition-colors hover:bg-wine hover:text-parchment"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded border border-dashed border-wine-soft/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-rose transition-colors hover:border-parchment hover:bg-wine/20 hover:text-parchment"
           >
             <Plus className="h-3 w-3" /> Añadir acusación
           </button>
         </div>
       </aside>
 
-      <div className="relative flex w-full flex-1 flex-col md:w-[70%]">
+      <div className="relative flex flex-1 flex-col overflow-y-auto">
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar"
-          className="absolute right-5 top-5 z-10 grid h-9 w-9 place-items-center rounded-full border border-parchment/25 text-parchment transition-colors hover:bg-wine"
+          aria-label="Cerrar detalle"
+          className="absolute right-6 top-6 z-10 grid h-8 w-8 place-items-center rounded border border-wine-soft/50 bg-ink/80 text-parchment transition-colors hover:bg-wine"
         >
           <X className="h-4 w-4" />
         </button>
 
         {charge ? (
           <>
-            <header className="border-b border-wine-soft/40 px-8 py-6 pr-16">
+            <header className="border-b border-wine-soft/40 px-8 py-7 pr-20">
               <p className="text-[10px] uppercase tracking-[0.3em] text-wine-soft">
-                {`ACUSACIÓN ${person.charges.findIndex((c) => c.id === charge.id) + 1}`}
+                {charge.n} · Año {charge.year}
               </p>
-              <h3 className="font-display mt-2 text-xl leading-snug text-parchment">
+              <h2 className="font-display mt-2 text-xl font-bold tracking-wide text-parchment">
                 <Editable
                   value={charge.title}
-                  onCommit={(v) => onPatchCharge(charge.id, { title: v })}
-                  placeholder="Título de la acusación"
-                  multiline
+                  onCommit={(v) => onPatchCharge(charge.id, { title: v || charge.title })}
                 />
-              </h3>
-              <div className="mt-3 inline-block border border-wine-soft px-2.5 py-1 text-[10px] tracking-[0.2em] text-parchment">
-                <Editable
-                  value={charge.year}
-                  onCommit={(v) => onPatchCharge(charge.id, { year: v || "S/F" })}
-                  placeholder="Año"
-                />
-              </div>
+              </h2>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-8 pb-16 pt-6">
+            <div className="flex-1 space-y-6 px-8 py-7">
               {charge.fields.map((field) => (
                 <div
                   key={field.id}
                   onDragOver={(e) => {
-                    if (dragId) e.preventDefault();
-                  }}
-                  onDrop={(e) => {
+                    if (!dragId) return;
                     e.preventDefault();
+                  }}
+                  onDrop={() => {
                     if (dragId) moveField(dragId, field.id);
                     setDragId(null);
                   }}
-                  className={`mb-7 rounded ${dragId === field.id ? "opacity-50" : ""}`}
+                  className={`group relative border-l-2 border-wine-soft/40 pl-4 transition-all ${
+                    dragId === field.id ? "opacity-30" : ""
+                  }`}
                 >
-                  <div className="group/field mb-2.5 flex items-center gap-2 border-b border-parchment/10 pb-1.5">
-                    <span
-                      draggable
-                      title="Arrastre para reordenar el campo"
-                      onDragStart={() => setDragId(field.id)}
-                      onDragEnd={() => setDragId(null)}
-                      className="cursor-grab text-parchment/35 hover:text-parchment active:cursor-grabbing"
-                    >
-                      <GripVertical className="h-3.5 w-3.5" />
-                    </span>
-                    <h4 className="flex-1 text-[10px] uppercase tracking-[0.28em] text-rose">
-                      <Editable
-                        value={field.label}
-                        onCommit={(v) => patchField(field.id, { label: v || field.label })}
-                        placeholder="Nombre del campo"
-                      />
-                    </h4>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        draggable
+                        onDragStart={() => setDragId(field.id)}
+                        onDragEnd={() => setDragId(null)}
+                        className="cursor-grab text-dust opacity-0 transition-opacity hover:text-parchment group-hover:opacity-100 active:cursor-grabbing"
+                      >
+                        <GripVertical className="h-3.5 w-3.5" />
+                      </span>
+                      <h4 className="text-[10px] uppercase tracking-[0.25em] text-wine-soft">
+                        <Editable
+                          value={field.label}
+                          onCommit={(v) => patchField(field.id, { label: v || field.label })}
+                        />
+                      </h4>
+                    </div>
+
                     <button
                       type="button"
-                      title="Eliminar campo"
+                      title="Eliminar este campo"
                       onClick={() => {
-                        if (!window.confirm("¿Está seguro de que desea eliminar este campo?")) return;
-                        setFields(charge.fields.filter((f) => f.id !== field.id));
+                        if (window.confirm(`¿Eliminar el campo «${field.label}»?`)) {
+                          setFields(charge.fields.filter((f) => f.id !== field.id));
+                        }
                       }}
-                      className="grid h-6 w-6 place-items-center rounded border border-parchment/25 text-parchment/70 opacity-0 transition-opacity hover:bg-wine hover:text-parchment group-hover/field:opacity-100"
+                      className="opacity-0 transition-opacity hover:text-rose group-hover:opacity-100"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3 w-3 text-dust" />
                     </button>
                   </div>
 
                   {field.type === "text" ? (
-                    <p className="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed text-parchment/85">
+                    <div className="text-sm leading-relaxed text-parchment/90">
                       <Editable
                         value={field.text}
                         onCommit={(v) => patchField(field.id, { text: v })}
-                        placeholder="Sin información registrada."
                         multiline
+                        placeholder="Clic para escribir..."
                       />
-                    </p>
+                    </div>
                   ) : (
-                    <>
-                      {field.items.length === 0 ? (
-                        <p className="text-xs italic text-dust">Sin registros.</p>
-                      ) : (
-                        <ul className="flex flex-col gap-2">
-                          {field.items.map((item) => (
-                            <ProofRow
-                              key={item.id}
-                              item={item}
-                              icon={field.type === "proofs" ? "foja" : "task"}
-                              placeholder={field.type === "proofs" ? "Foja …" : "Gestión pendiente"}
-                              onChange={(patch) =>
-                                patchField(field.id, {
-                                  items: field.items.map((it) =>
-                                    it.id === item.id ? { ...it, ...patch } : it,
-                                  ),
-                                })
-                              }
-                              onRemove={() =>
-                                patchField(field.id, {
-                                  items: field.items.filter((it) => it.id !== item.id),
-                                })
-                              }
-                              dragging={dragItem?.itemId === item.id}
-                              onDragStartItem={() =>
-                                setDragItem({ fieldId: field.id, itemId: item.id })
-                              }
-                              onDragEndItem={() => setDragItem(null)}
-                              onDropItem={() => {
-                                if (dragItem && dragItem.fieldId === field.id)
-                                  moveItem(field.id, dragItem.itemId, item.id);
-                                setDragItem(null);
-                              }}
-                            />
-
-                          ))}
-                        </ul>
-                      )}
+                    <div className="space-y-1.5">
+                      {field.items.map((it) => (
+                        <ProofRow
+                          key={it.id}
+                          item={it}
+                          icon={field.type === "proofs" ? "foja" : "task"}
+                          placeholder={field.type === "proofs" ? "Foja / prueba..." : "Gestión pendiente..."}
+                          onChange={(p: Partial<Proof>) => {
+                            patchField(field.id, {
+                              items: field.items.map((x) => (x.id === it.id ? { ...x, ...p } : x)),
+                            });
+                          }}
+                          onRemove={() => {
+                            patchField(field.id, {
+                              items: field.items.filter((x) => x.id !== it.id),
+                            });
+                          }}
+                          onDragStartItem={() => setDragItem({ fieldId: field.id, itemId: it.id })}
+                          onDragEndItem={() => setDragItem(null)}
+                          onDropItem={() => {
+                            if (dragItem?.fieldId === field.id) {
+                              moveItem(field.id, dragItem.itemId, it.id);
+                              setDragItem(null);
+                            }
+                          }}
+                        />
+                      ))}
                       <AddButton
-                        label={field.type === "proofs" ? "Añadir foja" : "Añadir elemento"}
-                        onClick={() =>
+                        label={field.type === "proofs" ? "Añadir foja / prueba" : "Añadir gestión"}
+                        onClick={() => {
+                          const label = window.prompt("Descripción o nombre:", "");
+                          if (!label?.trim()) return;
                           patchField(field.id, {
-                            items: [...field.items, { id: uid("it"), label: "Nuevo registro", url: "" }],
-                          })
-                        }
+                            items: [...field.items, { id: uid("it"), label: label.trim(), url: "" }],
+                          });
+                        }}
                       />
-                    </>
+                    </div>
                   )}
                 </div>
               ))}
@@ -326,7 +404,7 @@ export function CaseDetail({
               <button
                 type="button"
                 onClick={addField}
-                className="flex items-center gap-2 border border-wine-soft px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-rose transition-colors hover:bg-wine hover:text-parchment"
+                className="mt-6 flex items-center gap-1.5 border border-dashed border-wine-soft/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-rose transition-colors hover:border-parchment hover:text-parchment"
               >
                 <Plus className="h-3 w-3" /> Añadir campo
               </button>
@@ -340,6 +418,16 @@ export function CaseDetail({
           </div>
         )}
       </div>
+
+      {isSyncModalOpen && onSyncCharges && (
+        <SyncModal
+          currentCaseId={currentCaseId}
+          targetPerson={person}
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+          onSyncCharges={onSyncCharges}
+        />
+      )}
     </section>
   );
 }

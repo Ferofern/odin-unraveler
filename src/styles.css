@@ -54,7 +54,7 @@
   --color-rose: var(--rose);
 }
 
-:root {
+:root, [data-theme="penal"] {
   --radius: 0.375rem;
   --background: oklch(0.05 0.01 17);
   --foreground: oklch(0.95 0.005 17);
@@ -96,6 +96,80 @@
   --parchment: oklch(0.95 0.005 17);
   --dust: oklch(0.68 0.025 10);
   --rose: oklch(0.65 0.12 10);
+
+  --theme-node-bg: linear-gradient(150deg, oklch(0.42 0.15 18), oklch(0.35 0.12 18) 55%, oklch(0.25 0.08 18) 100%);
+  --theme-active-node-bg: linear-gradient(150deg, oklch(0.48 0.16 18), oklch(0.38 0.14 18) 60%, oklch(0.22 0.08 18) 100%);
+  --theme-vignette-radial: radial-gradient(ellipse at 50% 40%, oklch(0.35 0.12 18 / 0.22), transparent 60%);
+}
+
+[data-theme="civil"] {
+  --radius: 0.375rem;
+  --background: oklch(0.06 0.02 245);
+  --foreground: oklch(0.96 0.006 240);
+  --card: oklch(0.09 0.025 245);
+  --card-foreground: oklch(0.96 0.006 240);
+  --popover: oklch(0.09 0.025 245);
+  --popover-foreground: oklch(0.96 0.006 240);
+  --primary: oklch(0.38 0.12 245);
+  --primary-foreground: oklch(0.98 0.005 240);
+  --secondary: oklch(0.14 0.025 245);
+  --secondary-foreground: oklch(0.96 0.006 240);
+  --muted: oklch(0.18 0.025 245);
+  --muted-foreground: oklch(0.70 0.03 235);
+  --accent: oklch(0.46 0.14 245);
+  --accent-foreground: oklch(0.98 0.005 240);
+  --destructive: oklch(0.55 0.18 20);
+  --destructive-foreground: oklch(0.98 0.005 240);
+  --border: oklch(0.46 0.13 245 / 0.6);
+  --input: oklch(0.15 0.025 245);
+  --ring: oklch(0.55 0.14 245);
+
+  --wine: oklch(0.38 0.12 245);
+  --wine-soft: oklch(0.46 0.14 245);
+  --wine-deep: oklch(0.24 0.08 245);
+  --ink: oklch(0.06 0.02 245);
+  --parchment: oklch(0.96 0.006 240);
+  --dust: oklch(0.70 0.03 235);
+  --rose: oklch(0.70 0.12 220);
+
+  --theme-node-bg: linear-gradient(150deg, oklch(0.44 0.13 245), oklch(0.34 0.11 245) 55%, oklch(0.22 0.07 245) 100%);
+  --theme-active-node-bg: linear-gradient(150deg, oklch(0.50 0.15 245), oklch(0.40 0.13 245) 60%, oklch(0.24 0.08 245) 100%);
+  --theme-vignette-radial: radial-gradient(ellipse at 50% 40%, oklch(0.38 0.12 245 / 0.22), transparent 60%);
+}
+
+[data-theme="familiar"] {
+  --radius: 0.375rem;
+  --background: oklch(0.06 0.02 165);
+  --foreground: oklch(0.96 0.006 140);
+  --card: oklch(0.09 0.025 165);
+  --card-foreground: oklch(0.96 0.006 140);
+  --popover: oklch(0.09 0.025 165);
+  --popover-foreground: oklch(0.96 0.006 140);
+  --primary: oklch(0.36 0.10 165);
+  --primary-foreground: oklch(0.98 0.005 140);
+  --secondary: oklch(0.14 0.025 165);
+  --secondary-foreground: oklch(0.96 0.006 140);
+  --muted: oklch(0.18 0.025 165);
+  --muted-foreground: oklch(0.70 0.03 150);
+  --accent: oklch(0.44 0.12 165);
+  --accent-foreground: oklch(0.98 0.005 140);
+  --destructive: oklch(0.55 0.18 20);
+  --destructive-foreground: oklch(0.98 0.005 140);
+  --border: oklch(0.44 0.11 165 / 0.6);
+  --input: oklch(0.15 0.025 165);
+  --ring: oklch(0.55 0.12 165);
+
+  --wine: oklch(0.36 0.10 165);
+  --wine-soft: oklch(0.46 0.12 165);
+  --wine-deep: oklch(0.22 0.06 165);
+  --ink: oklch(0.06 0.02 165);
+  --parchment: oklch(0.96 0.008 90);
+  --dust: oklch(0.72 0.03 145);
+  --rose: oklch(0.72 0.13 80);
+
+  --theme-node-bg: linear-gradient(150deg, oklch(0.42 0.11 165), oklch(0.32 0.09 165) 55%, oklch(0.20 0.06 165) 100%);
+  --theme-active-node-bg: linear-gradient(150deg, oklch(0.48 0.13 165), oklch(0.38 0.11 165) 60%, oklch(0.22 0.07 165) 100%);
+  --theme-vignette-radial: radial-gradient(ellipse at 50% 40%, oklch(0.36 0.10 165 / 0.22), transparent 60%);
 }
 
 @layer base {
@@ -106,6 +180,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   html {
@@ -134,7 +209,7 @@
 
   .vignette-odin {
     background:
-      radial-gradient(ellipse at 50% 40%, oklch(0.35 0.12 18 / 0.20), transparent 60%),
+      var(--theme-vignette-radial, radial-gradient(ellipse at 50% 40%, oklch(0.35 0.12 18 / 0.20), transparent 60%)),
       radial-gradient(ellipse at 50% 50%, transparent 40%, oklch(0 0 0 / 0.85) 100%);
   }
 
@@ -147,7 +222,7 @@
   }
 
   .node-active {
-    background: linear-gradient(150deg, oklch(0.45 0.16 18), oklch(0.35 0.12 18) 60%, oklch(0.20 0.06 18) 100%);
+    background: var(--theme-active-node-bg, linear-gradient(150deg, oklch(0.45 0.16 18), oklch(0.35 0.12 18) 60%, oklch(0.20 0.06 18) 100%));
     box-shadow: 0 0 0 12px oklch(0.42 0.15 18 / 0.22), 0 0 45px oklch(0.45 0.16 18 / 0.55);
   }
 

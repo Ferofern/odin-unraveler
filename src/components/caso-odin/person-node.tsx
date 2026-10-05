@@ -151,9 +151,15 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
         className={`relative overflow-hidden rounded-md border p-4 text-center transition-shadow cursor-grab active:cursor-grabbing ${
           active
             ? "node-active border-parchment/60"
-            : "node-glow border-parchment/25 bg-[linear-gradient(150deg,oklch(0.42_0.15_18),oklch(0.35_0.12_18)_55%,oklch(0.25_0.08_18)_100%)] hover:border-parchment/60"
+            : "node-glow border-parchment/25 hover:border-parchment/60"
         }`}
-        style={{ width: person.w, height: person.h }}
+        style={{
+          width: person.w,
+          height: person.h,
+          background: active
+            ? undefined
+            : "var(--theme-node-bg, linear-gradient(150deg,oklch(0.42_0.15_18),oklch(0.35_0.12_18)_55%,oklch(0.25_0.08_18)_100%))",
+        }}
       >
         <button
           type="button"
@@ -172,14 +178,14 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
           title="Eliminar implicado"
           onClick={(e) => {
             e.stopPropagation();
-            if (window.confirm(`¿Eliminar a «${person.name}» y todas sus acusaciones?`)) onRemove();
+            if (window.confirm(`¿Eliminar a «${person.name}» y todas sus acusaciones de este tablero?`)) onRemove();
           }}
           className="absolute right-1.5 top-9 z-20 grid h-6 w-6 place-items-center rounded border border-parchment/30 bg-ink/70 text-parchment opacity-0 transition-opacity hover:bg-wine group-hover:opacity-100"
         >
           <Trash2 className="h-3 w-3" />
         </button>
 
-        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 overflow-hidden pointer-events-none">
+        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-1.5 overflow-hidden pointer-events-none">
           <div className="pointer-events-auto" onPointerDown={(e) => e.stopPropagation()}>
             <Editable
               value={person.name}
@@ -190,6 +196,11 @@ export function PersonNode({ person, active, stageRef, onSelect, onPatch, onRemo
               multiline
             />
           </div>
+          {person.cedula ? (
+            <span className="pointer-events-auto rounded bg-ink/50 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wider text-rose">
+              C.I. {person.cedula}
+            </span>
+          ) : null}
           <small className="text-[10px] uppercase tracking-[0.18em] text-parchment/70 pointer-events-auto">
             {person.charges.length} {person.charges.length === 1 ? "Acusación" : "Acusaciones"}
           </small>

@@ -1,20 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, Loader2, Check, AlertCircle } from "lucide-react";
 import { saveCaseToDb } from "../lib/caso-odin-db.functions";
 
 export function GlobalSaveButton() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [activeCase, setActiveCase] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkCase = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        setActiveCase(params.get("caso"));
+      }
+    };
+    checkCase();
+    window.addEventListener("popstate", checkCase);
+    const interval = setInterval(checkCase, 600);
+    return () => {
+      window.removeEventListener("popstate", checkCase);
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (!activeCase) return null;
 
   const handleSave = async () => {
     setStatus("saving");
     try {
-      const raw = window.localStorage.getItem("caso-odin-state-v2");
+      const storageKey = `caso-state-${activeCase}`;
+      const raw = window.localStorage.getItem(storageKey);
       if (!raw) {
         setStatus("error");
         setTimeout(() => setStatus("idle"), 3000);
         return;
       }
-      const res = await saveCaseToDb({ data: { payload: raw } });
+      const res = await saveCaseToDb({ data: { caseId: activeCase, payload: raw } });
       if (res?.configured) {
         setStatus("saved");
         setTimeout(() => setStatus("idle"), 2000);
