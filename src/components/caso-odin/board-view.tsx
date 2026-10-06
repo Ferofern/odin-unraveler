@@ -9,12 +9,14 @@ import {
   Check,
   Loader2,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { Editable } from "./editable";
 import { PersonNode } from "./person-node";
 import { CaseDetail } from "./case-detail";
 import { ImportPersonModal } from "./import-person-modal";
 import { SyncModal } from "./sync-modal";
+import { RecycleBinModal } from "./recycle-bin-modal";
 import { useCaseState, type StoredPerson, type StoredCharge } from "@/lib/caso-odin-store";
 
 interface BoardViewProps {
@@ -40,6 +42,7 @@ export function BoardView({ caseId, onBackToCases }: BoardViewProps) {
     removePerson,
     reset,
     saveBoard,
+    reloadFromDb,
   } = useCaseState(caseId);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -47,6 +50,7 @@ export function BoardView({ caseId, onBackToCases }: BoardViewProps) {
   const [selectedChargeId, setSelectedChargeId] = useState<string | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isToolbarSyncOpen, setIsToolbarSyncOpen] = useState(false);
+  const [isRecycleBinOpen, setIsRecycleBinOpen] = useState(false);
   const [toolbarSyncTargetPerson, setToolbarSyncTargetPerson] = useState<StoredPerson | null>(null);
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -264,6 +268,18 @@ export function BoardView({ caseId, onBackToCases }: BoardViewProps) {
 
         <span className="h-4 w-px bg-wine-soft/50" />
 
+        {/* Papelera de Reciclaje */}
+        <button
+          type="button"
+          title="Ver elementos borrados en la papelera de reciclaje"
+          onClick={() => setIsRecycleBinOpen(true)}
+          className="flex items-center gap-1.5 px-1.5 text-[10px] uppercase tracking-[0.2em] text-dust transition-colors hover:text-parchment"
+        >
+          <Trash2 className="h-3.5 w-3.5 text-rose" /> Papelera
+        </button>
+
+        <span className="h-4 w-px bg-wine-soft/50" />
+
         <span
           title={
             remoteStatus === "local"
@@ -318,7 +334,7 @@ export function BoardView({ caseId, onBackToCases }: BoardViewProps) {
             if (created) setSelectedChargeId(created);
           }}
           onRemoveCharge={(chargeId) => {
-            if (!window.confirm("¿Eliminar esta acusación?")) return;
+            if (!window.confirm("¿Eliminar esta acusación? Se enviará a la papelera de reciclaje.")) return;
             removeCharge(openPerson.id, chargeId);
             if (selectedChargeId === chargeId) setSelectedChargeId(null);
           }}
@@ -385,6 +401,18 @@ export function BoardView({ caseId, onBackToCases }: BoardViewProps) {
             />
           </div>
         </div>
+      )}
+
+      {/* Modal de Papelera de Reciclaje */}
+      {isRecycleBinOpen && (
+        <RecycleBinModal
+          currentCaseId={caseId}
+          isOpen={isRecycleBinOpen}
+          onClose={() => setIsRecycleBinOpen(false)}
+          onItemRestored={() => {
+            reloadFromDb();
+          }}
+        />
       )}
     </div>
   );

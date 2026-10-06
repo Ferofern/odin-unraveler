@@ -272,11 +272,24 @@ export function migrate(raw: unknown, caseId = "caso-odin"): CaseState | null {
 export type RemoteStatus = "local" | "syncing" | "synced" | "error";
 
 export function useCaseState(caseId: string = "caso-odin") {
-  const [state, setState] = useState<CaseState>(() => buildInitialState(caseId));
+  const storageKey = `${STORAGE_PREFIX}${caseId}`;
+
+  const [state, setState] = useState<CaseState>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        const parsed = raw ? migrate(JSON.parse(raw), caseId) : null;
+        if (parsed) return parsed;
+      } catch {}
+    }
+    return buildInitialState(caseId);
+  });
+
   const [hydrated, setHydrated] = useState(false);
   const [remoteStatus, setRemoteStatus] = useState<RemoteStatus>("local");
   const remoteEnabled = useRef(false);
-  const storageKey = `${STORAGE_PREFIX}${caseId}`;
+  const isHydratedRef = useRef(false);
+  const saveTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,6 +313,9 @@ export function useCaseState(caseId: string = "caso-odin") {
           const parsed = remote.payload ? migrate(JSON.parse(remote.payload), caseId) : null;
           if (parsed) {
             setState(parsed);
+            try {
+              window.localStorage.setItem(storageKey, JSON.stringify(parsed));
+            } catch {}
             setHydrated(true);
             return;
           }
@@ -531,6 +547,29 @@ export function useCaseState(caseId: string = "caso-odin") {
     [update],
   );
 
+  const reloadFromDb = useCallback(async () => {
+    try {
+      setRemoteStatus("syncing");
+      const remote = await loadCaseFromDb({ data: { caseId } });
+      if (remote.configured && remote.payload) {
+        const parsed = migrate(JSON.parse(remote.payload), caseId);
+        if (parsed) {
+          setState(parsed);
+          try {
+            window.localStorage.setItem(storageKey, JSON.stringify(parsed));
+          } catch {}
+          setRemoteStatus("synced");
+          return true;
+        }
+      }
+      setRemoteStatus("synced");
+      return false;
+    } catch {
+      setRemoteStatus("error");
+      return false;
+    }
+  }, [caseId, storageKey]);
+
   const saveBoard = useCallback(async () => {
     setRemoteStatus("syncing");
     try {
@@ -548,6 +587,32 @@ export function useCaseState(caseId: string = "caso-odin") {
       return false;
     }
   }, [caseId, state]);
+
+  // Guardado automático debounced cuando el estado cambia tras la hidratación
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!isHydratedRef.current) {
+      isHydratedRef.current = true;
+      return;
+    }
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const payload = JSON.stringify(state);
+        const res = await saveCaseToDb({ data: { caseId, payload } });
+        if (res?.configured && res.saved) {
+          setRemoteStatus("synced");
+        }
+      } catch (e) {
+        console.warn("Auto-save:", e);
+      }
+    }, 1200);
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [state, hydrated, caseId]);
 
   return {
     state,
@@ -568,5 +633,6 @@ export function useCaseState(caseId: string = "caso-odin") {
     removePerson,
     reset,
     saveBoard,
+    reloadFromDb,
   };
 }

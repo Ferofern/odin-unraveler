@@ -30,7 +30,7 @@ export const loadCaseFromDb = createServerFn({ method: "GET" })
   });
 
 export const saveCaseToDb = createServerFn({ method: "POST" })
-  .inputValidator((data: { caseId?: string; payload: string }) => {
+  .validator((data: { caseId?: string; payload: string }) => {
     if (!data || typeof data.payload !== "string") throw new Error("payload inválido");
     return { caseId: data.caseId || CASE_ID, payload: data.payload };
   })
@@ -40,7 +40,7 @@ export const saveCaseToDb = createServerFn({ method: "POST" })
   });
 
 export const createCaseInDbFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       nombre: string;
       tipo_penal: string;
@@ -55,14 +55,14 @@ export const createCaseInDbFn = createServerFn({ method: "POST" })
   });
 
 export const deleteCaseFromDbFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { caseId: string }) => data)
+  .validator((data: { caseId: string }) => data)
   .handler(async ({ data }) => {
     const { deleteCaseFromDb } = await import("./caso-odin-db.server");
     return deleteCaseFromDb(data.caseId);
   });
 
 export const updateCaseStyleInDbFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { caseId: string; estilo: "penal" | "civil" | "familiar" }) => data)
+  .validator((data: { caseId: string; estilo: "penal" | "civil" | "familiar" }) => data)
   .handler(async ({ data }) => {
     const { updateCaseStyleInDb } = await import("./caso-odin-db.server");
     return updateCaseStyleInDb(data.caseId, data.estilo);
@@ -76,7 +76,7 @@ export const loadAllImplicadosGlobalFn = createServerFn({ method: "GET" }).handl
 );
 
 export const addGlobalImplicadoFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       nombre: string;
       cedula?: string | undefined;
@@ -94,8 +94,37 @@ export const addGlobalImplicadoFn = createServerFn({ method: "POST" })
   });
 
 export const syncChargesFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { targetPersonId: string; chargesToSync: any[] }) => data)
+  .validator((data: { targetPersonId: string; chargesToSync: any[] }) => data)
   .handler(async ({ data }) => {
     const { syncChargesBetweenCases } = await import("./caso-odin-db.server");
     return syncChargesBetweenCases(data);
   });
+
+export const loadRecycleBinFn = createServerFn({ method: "GET" })
+  .validator((data?: { caseId?: string }) => data)
+  .handler(async (ctx: any) => {
+    const { listRecycleBin } = await import("./caso-odin-db.server");
+    return listRecycleBin(ctx?.data?.caseId);
+  });
+
+export const restoreRecycleItemFn = createServerFn({ method: "POST" })
+  .validator((data: { recycleId: string }) => data)
+  .handler(async ({ data }) => {
+    const { restoreRecycleItem } = await import("./caso-odin-db.server");
+    return restoreRecycleItem(data.recycleId);
+  });
+
+export const deleteRecycleItemPermanentFn = createServerFn({ method: "POST" })
+  .validator((data: { recycleId: string }) => data)
+  .handler(async ({ data }) => {
+    const { deleteRecycleItemPermanent } = await import("./caso-odin-db.server");
+    return deleteRecycleItemPermanent(data.recycleId);
+  });
+
+export const emptyRecycleBinFn = createServerFn({ method: "POST" })
+  .validator((data?: { caseId?: string }) => data)
+  .handler(async ({ data }) => {
+    const { emptyRecycleBin } = await import("./caso-odin-db.server");
+    return emptyRecycleBin(data?.caseId);
+  });
+

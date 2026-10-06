@@ -7,6 +7,46 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const todayStr = (): string => new Date().toISOString().split('T')[0] ?? '';
 
+export function cleanPersonId(id: string | number): string {
+  const s = String(id || '').trim();
+  return s.startsWith('p-') ? s.slice(2) : s;
+}
+
+export function clientPersonId(dbId: string | number): string {
+  const s = String(dbId || '').trim();
+  return s.startsWith('p-') ? s : `p-${s}`;
+}
+
+export function cleanChargeId(id: string | number): string {
+  const s = String(id || '').trim();
+  return s.startsWith('c-') ? s.slice(2) : s;
+}
+
+export function clientChargeId(dbId: string | number): string {
+  const s = String(dbId || '').trim();
+  return s.startsWith('c-') ? s : `c-${s}`;
+}
+
+export function cleanProofId(id: string | number): string {
+  const s = String(id || '').trim();
+  return s.startsWith('pr-') ? s.slice(3) : s;
+}
+
+export function clientProofId(dbId: string | number): string {
+  const s = String(dbId || '').trim();
+  return s.startsWith('pr-') ? s : `pr-${s}`;
+}
+
+export function cleanTaskId(id: string | number): string {
+  const s = String(id || '').trim();
+  return s.startsWith('tk-') ? s.slice(3) : s;
+}
+
+export function clientTaskId(dbId: string | number): string {
+  const s = String(dbId || '').trim();
+  return s.startsWith('tk-') ? s : `tk-${s}`;
+}
+
 export interface CaseSummary {
   id: string;
   nombre: string;
@@ -181,7 +221,7 @@ export async function readCase(caseId: string = 'caso-odin') {
       const rowIndex = Math.floor(index / columnsPerRow);
 
       return {
-        id: impIdStr.startsWith('p') ? impIdStr : `p-${impIdStr}`,
+        id: clientPersonId(impIdStr),
         name: imp.nombre || 'Nuevo Implicado',
         role: imp.rol || `ACUSADO 0${index + 1}`,
         cedula: imp.cedula || '',
@@ -202,7 +242,7 @@ export async function readCase(caseId: string = 'caso-odin') {
           const acuTasks = (gestiones || []).filter((g: any) => String(g.acusacion_id).trim() === acuIdStr);
 
           return {
-            id: acuIdStr.startsWith('c') ? acuIdStr : `c-${acuIdStr}`,
+            id: clientChargeId(acuIdStr),
             n: acu.numero || `ACUSACIÓN ${acuIdx + 1}`,
             year: acu.fecha || 'S/F',
             title: acu.titulo || 'Sin título',
@@ -220,7 +260,7 @@ export async function readCase(caseId: string = 'caso-odin') {
                 type: 'proofs',
                 text: '',
                 items: acuProofs.map((p: any) => ({
-                  id: String(p.id).startsWith('pr') ? String(p.id) : `pr-${p.id}`,
+                  id: clientProofId(String(p.id)),
                   label: p.etiqueta || 'Foja sin nombre',
                   url: p.url || '',
                 })),
@@ -231,7 +271,7 @@ export async function readCase(caseId: string = 'caso-odin') {
                 type: 'tasks',
                 text: '',
                 items: acuTasks.map((t: any) => ({
-                  id: String(t.id).startsWith('tk') ? String(t.id) : `tk-${t.id}`,
+                  id: clientTaskId(String(t.id)),
                   label: t.descripcion || 'Gestión pendiente',
                   url: '',
                 })),
@@ -292,7 +332,7 @@ export async function writeCase(caseId: string, payload: string) {
 
     // 2. Upsert implicados con caso_id asignado a este tablero
     const implicadosUpsert = sortedPeople.map((p: any, idx: number) => ({
-      id: String(p.id).replace('p-', ''),
+      id: cleanPersonId(p.id),
       caso_id: caseId,
       nombre: p.name,
       rol: p.role || `ACUSADO ${String(idx + 1).padStart(2, '0')}`,
@@ -310,31 +350,27 @@ export async function writeCase(caseId: string, payload: string) {
       foto_ratio: p.photoRatio,
     }));
 
-    if (implicadosUpsert.length > 0) {
-      await supabase.from('implicados').upsert(implicadosUpsert);
-    }
-
     const acusacionesUpsert: any[] = [];
     const pruebasUpsert: any[] = [];
     const gestionesUpsert: any[] = [];
 
     for (const p of sortedPeople) {
       const pCharges = p.charges || [];
-      const personDbId = String(p.id).replace('p-', '');
+      const personDbId = cleanPersonId(p.id);
 
       for (let i = 0; i < pCharges.length; i++) {
         const c = pCharges[i];
         const justField = c.fields?.find((f: any) => f.label === 'La justificación');
         const tipoField = c.fields?.find((f: any) => f.label === 'Tipo penal');
-        const cleanAcuId = String(c.id).replace('c-', '');
+        const cleanAcuId = cleanChargeId(c.id);
 
         acusacionesUpsert.push({
           id: cleanAcuId,
           implicado_id: personDbId,
           numero: c.n || `ACUSACIÓN ${i + 1}`,
           orden: i + 1,
-          fecha: c.year,
-          titulo: c.title,
+          fecha: c.year || 'S/F',
+          titulo: c.title || 'Sin título',
           justificacion: justField ? justField.text : '',
           tipo_penal: tipoField ? tipoField.text : '',
         });
@@ -343,10 +379,10 @@ export async function writeCase(caseId: string, payload: string) {
         if (proofsField && proofsField.items) {
           for (const pr of proofsField.items) {
             pruebasUpsert.push({
-              id: String(pr.id).replace('pr-', ''),
+              id: cleanProofId(pr.id),
               acusacion_id: cleanAcuId,
               etiqueta: pr.label,
-              url: pr.url,
+              url: pr.url || '',
             });
           }
         }
@@ -355,7 +391,7 @@ export async function writeCase(caseId: string, payload: string) {
         if (tasksField && tasksField.items) {
           for (const tk of tasksField.items) {
             gestionesUpsert.push({
-              id: String(tk.id).replace('tk-', ''),
+              id: cleanTaskId(tk.id),
               acusacion_id: cleanAcuId,
               descripcion: tk.label,
             });
@@ -364,24 +400,165 @@ export async function writeCase(caseId: string, payload: string) {
       }
     }
 
+    // Upsert implicados primero para que existan las llaves foráneas para acusaciones
+    if (implicadosUpsert.length > 0) {
+      await supabase.from('implicados').upsert(implicadosUpsert);
+    }
+
+    const currentImpIds = new Set(implicadosUpsert.map((i) => String(i.id).trim()));
+    const currentAcuIds = new Set(acusacionesUpsert.map((a) => String(a.id).trim()));
+    const currentPruIds = new Set(pruebasUpsert.map((p) => String(p.id).trim()));
+    const currentGesIds = new Set(gestionesUpsert.map((g) => String(g.id).trim()));
+
+    // 3. Consultar registros existentes en BD para este caso
+    let impQuery = supabase.from('implicados').select('*');
+    if (caseId === 'caso-odin') {
+      impQuery = impQuery.or(`caso_id.eq.${caseId},caso_id.is.null`);
+    } else {
+      impQuery = impQuery.eq('caso_id', caseId);
+    }
+    const { data: dbImpForCase } = await impQuery;
+    const dbImpList = dbImpForCase || [];
+
+    const allCaseImpDbIds = Array.from(
+      new Set([
+        ...dbImpList.map((row: any) => String(row.id).trim()),
+        ...Array.from(currentImpIds),
+      ])
+    );
+
+    let dbAcusaciones: any[] = [];
+    let dbPruebas: any[] = [];
+    let dbGestiones: any[] = [];
+
+    if (allCaseImpDbIds.length > 0) {
+      const { data: acuData } = await supabase
+        .from('acusaciones')
+        .select('*')
+        .in('implicado_id', allCaseImpDbIds);
+      dbAcusaciones = acuData || [];
+
+      const allCaseAcuDbIds = Array.from(
+        new Set([
+          ...dbAcusaciones.map((row: any) => String(row.id).trim()),
+          ...Array.from(currentAcuIds),
+        ])
+      );
+
+      if (allCaseAcuDbIds.length > 0) {
+        const { data: pruData } = await supabase
+          .from('pruebas')
+          .select('*')
+          .in('acusacion_id', allCaseAcuDbIds);
+        dbPruebas = pruData || [];
+
+        const { data: gesData } = await supabase
+          .from('gestiones')
+          .select('*')
+          .in('acusacion_id', allCaseAcuDbIds);
+        dbGestiones = gesData || [];
+      }
+    }
+
+    // 4. Identificar qué registros fueron eliminados del caso
+    const toDelPruRows = dbPruebas.filter(
+      (p: any) => !currentPruIds.has(String(p.id).trim())
+    );
+    const toDelGesRows = dbGestiones.filter(
+      (g: any) => !currentGesIds.has(String(g.id).trim())
+    );
+    const toDelAcuRows = dbAcusaciones.filter(
+      (a: any) => !currentAcuIds.has(String(a.id).trim())
+    );
+    const toDelImpRows = dbImpList.filter(
+      (i: any) => !currentImpIds.has(String(i.id).trim())
+    );
+
+    // 5. Guardar registros eliminados en papelera_reciclaje
+    const recycleEntries: any[] = [];
+
+    for (const p of toDelPruRows) {
+      recycleEntries.push({
+        tabla_origen: 'pruebas',
+        datos_borrados: { ...p, caso_id: caseId },
+        borrado_en: new Date().toISOString(),
+      });
+    }
+
+    for (const g of toDelGesRows) {
+      recycleEntries.push({
+        tabla_origen: 'gestiones',
+        datos_borrados: { ...g, caso_id: caseId },
+        borrado_en: new Date().toISOString(),
+      });
+    }
+
+    for (const a of toDelAcuRows) {
+      recycleEntries.push({
+        tabla_origen: 'acusaciones',
+        datos_borrados: { ...a, caso_id: caseId },
+        borrado_en: new Date().toISOString(),
+      });
+    }
+
+    for (const imp of toDelImpRows) {
+      recycleEntries.push({
+        tabla_origen: 'implicados',
+        datos_borrados: { ...imp, caso_id: caseId },
+        borrado_en: new Date().toISOString(),
+      });
+    }
+
+    if (recycleEntries.length > 0) {
+      try {
+        const { error: recycleErr } = await supabase
+          .from('papelera_reciclaje')
+          .insert(recycleEntries);
+        if (recycleErr) {
+          console.warn('Nota: no se pudo insertar en papelera_reciclaje:', recycleErr.message);
+        }
+      } catch (rErr) {
+        console.warn('Excepción al insertar en papelera_reciclaje:', rErr);
+      }
+    }
+
+    // 6. Eliminar en orden estricto de relaciones inversas (hijos antes de padres)
+    if (toDelPruRows.length > 0) {
+      const pIds = toDelPruRows.map((r: any) => r.id);
+      await supabase.from('pruebas').delete().in('id', pIds);
+    }
+
+    if (toDelGesRows.length > 0) {
+      const gIds = toDelGesRows.map((r: any) => r.id);
+      await supabase.from('gestiones').delete().in('id', gIds);
+    }
+
+    if (toDelAcuRows.length > 0) {
+      const aIds = toDelAcuRows.map((r: any) => r.id);
+      await supabase.from('pruebas').delete().in('acusacion_id', aIds);
+      await supabase.from('gestiones').delete().in('acusacion_id', aIds);
+      await supabase.from('acusaciones').delete().in('id', aIds);
+    }
+
+    if (toDelImpRows.length > 0) {
+      const impIds = toDelImpRows.map((r: any) => r.id);
+      const { data: remAcu } = await supabase
+        .from('acusaciones')
+        .select('id')
+        .in('implicado_id', impIds);
+      if (remAcu && remAcu.length > 0) {
+        const remAcuIds = remAcu.map((a: any) => a.id);
+        await supabase.from('pruebas').delete().in('acusacion_id', remAcuIds);
+        await supabase.from('gestiones').delete().in('acusacion_id', remAcuIds);
+        await supabase.from('acusaciones').delete().in('id', remAcuIds);
+      }
+      await supabase.from('implicados').delete().in('id', impIds);
+    }
+
+    // 7. Upsert de acusaciones, pruebas y gestiones restantes
     if (acusacionesUpsert.length > 0) await supabase.from('acusaciones').upsert(acusacionesUpsert);
     if (pruebasUpsert.length > 0) await supabase.from('pruebas').upsert(pruebasUpsert);
     if (gestionesUpsert.length > 0) await supabase.from('gestiones').upsert(gestionesUpsert);
-
-    // 3. Limpieza SEGURA: SÓLO eliminar registros que pertenecían a ESTE CASO y fueron retirados
-    const { data: dbImpForCase } = await supabase
-      .from('implicados')
-      .select('id')
-      .eq('caso_id', caseId);
-
-    const currentImpIds = implicadosUpsert.map((i) => i.id);
-    const toDelImp = (dbImpForCase || [])
-      .filter((row: any) => !currentImpIds.includes(String(row.id)))
-      .map((row: any) => row.id);
-
-    if (toDelImp.length > 0) {
-      await supabase.from('implicados').delete().in('id', toDelImp);
-    }
 
     return { configured: true, saved: true };
   } catch (error) {
@@ -547,15 +724,28 @@ export async function deleteCaseFromDb(caseId: string) {
     };
 
     // 2. Insertar en papelera_reciclaje
-    await supabase.from('papelera_reciclaje').insert({
-      tabla_origen: 'casos',
-      datos_borrados: fullSnapshot,
-    });
+    try {
+      await supabase.from('papelera_reciclaje').insert({
+        tabla_origen: 'casos',
+        datos_borrados: fullSnapshot,
+        borrado_en: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('Advertencia al insertar caso en papelera_reciclaje:', e);
+    }
 
-    // 3. Eliminar de las tablas activas
+    // 3. Eliminar de las tablas activas en orden inverso
+    if (acuRows.length > 0) {
+      const acuIds = acuRows.map((a: any) => a.id);
+      await supabase.from('pruebas').delete().in('acusacion_id', acuIds);
+      await supabase.from('gestiones').delete().in('acusacion_id', acuIds);
+      await supabase.from('acusaciones').delete().in('id', acuIds);
+    }
+
     if (impIds.length > 0) {
       await supabase.from('implicados').delete().in('id', impIds);
     }
+
     await supabase.from('casos').delete().eq('id', caseId);
 
     return { configured: true, deleted: true };
@@ -734,5 +924,118 @@ export async function syncChargesBetweenCases(data: {
   } catch (err) {
     console.error('Error in syncChargesBetweenCases:', err);
     return { configured: true, syncedCount: 0 };
+  }
+}
+
+export interface RecycleItem {
+  id: string;
+  tabla_origen: string;
+  datos_borrados: any;
+  borrado_en: string;
+}
+
+export async function listRecycleBin(caseId?: string): Promise<{ configured: boolean; items: RecycleItem[] }> {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, items: [] };
+  try {
+    const { data, error } = await supabase
+      .from('papelera_reciclaje')
+      .select('*')
+      .order('borrado_en', { ascending: false });
+
+    if (error || !data) return { configured: true, items: [] };
+
+    const filtered = data.filter((item: any) => {
+      if (!caseId) return true;
+      const datos = item.datos_borrados;
+      if (!datos) return true;
+      const itemCaseId = datos.caso_id || datos.caso?.id;
+      return !itemCaseId || itemCaseId === caseId;
+    });
+
+    return { configured: true, items: filtered };
+  } catch (err) {
+    console.error('Error in listRecycleBin:', err);
+    return { configured: true, items: [] };
+  }
+}
+
+export async function restoreRecycleItem(recycleId: string): Promise<{ configured: boolean; restored: boolean }> {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, restored: false };
+  try {
+    const { data: item, error: fetchErr } = await supabase
+      .from('papelera_reciclaje')
+      .select('*')
+      .eq('id', recycleId)
+      .maybeSingle();
+
+    if (fetchErr || !item) {
+      return { configured: true, restored: false };
+    }
+
+    const { tabla_origen, datos_borrados } = item;
+    const datos = datos_borrados || {};
+
+    if (tabla_origen === 'pruebas') {
+      const { caso_id: _c, ...pData } = datos;
+      await supabase.from('pruebas').upsert([pData]);
+    } else if (tabla_origen === 'gestiones') {
+      const { caso_id: _c, ...gData } = datos;
+      await supabase.from('gestiones').upsert([gData]);
+    } else if (tabla_origen === 'acusaciones') {
+      const { caso_id: _c, ...aData } = datos;
+      await supabase.from('acusaciones').upsert([aData]);
+    } else if (tabla_origen === 'implicados') {
+      const { caso_id, ...impData } = datos;
+      await supabase.from('implicados').upsert([{ ...impData, caso_id: caso_id || impData.caso_id }]);
+    } else if (tabla_origen === 'casos') {
+      if (datos.caso) await supabase.from('casos').upsert([datos.caso]);
+      if (datos.implicados?.length) await supabase.from('implicados').upsert(datos.implicados);
+      if (datos.acusaciones?.length) await supabase.from('acusaciones').upsert(datos.acusaciones);
+      if (datos.pruebas?.length) await supabase.from('pruebas').upsert(datos.pruebas);
+      if (datos.gestiones?.length) await supabase.from('gestiones').upsert(datos.gestiones);
+    }
+
+    await supabase.from('papelera_reciclaje').delete().eq('id', recycleId);
+
+    return { configured: true, restored: true };
+  } catch (err) {
+    console.error('Error in restoreRecycleItem:', err);
+    return { configured: true, restored: false };
+  }
+}
+
+export async function deleteRecycleItemPermanent(recycleId: string): Promise<{ configured: boolean; deleted: boolean }> {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, deleted: false };
+  try {
+    await supabase.from('papelera_reciclaje').delete().eq('id', recycleId);
+    return { configured: true, deleted: true };
+  } catch (err) {
+    console.error('Error in deleteRecycleItemPermanent:', err);
+    return { configured: true, deleted: false };
+  }
+}
+
+export async function emptyRecycleBin(caseId?: string): Promise<{ configured: boolean; cleared: boolean }> {
+  if (!supabaseUrl || !supabaseKey) return { configured: false, cleared: false };
+  try {
+    if (caseId) {
+      const { data } = await supabase.from('papelera_reciclaje').select('id, datos_borrados');
+      const toDeleteIds = (data || [])
+        .filter((row: any) => {
+          const d = row.datos_borrados;
+          return d?.caso_id === caseId || d?.caso?.id === caseId;
+        })
+        .map((row: any) => row.id);
+
+      if (toDeleteIds.length > 0) {
+        await supabase.from('papelera_reciclaje').delete().in('id', toDeleteIds);
+      }
+    } else {
+      await supabase.from('papelera_reciclaje').delete().neq('tabla_origen', '');
+    }
+    return { configured: true, cleared: true };
+  } catch (err) {
+    console.error('Error in emptyRecycleBin:', err);
+    return { configured: true, cleared: false };
   }
 }

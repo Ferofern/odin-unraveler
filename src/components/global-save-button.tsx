@@ -35,7 +35,7 @@ export function GlobalSaveButton() {
         return;
       }
       const res = await saveCaseToDb({ data: { caseId: activeCase, payload: raw } });
-      if (res?.configured) {
+      if (res?.configured && res.saved) {
         setStatus("saved");
         setTimeout(() => setStatus("idle"), 2000);
       } else {
